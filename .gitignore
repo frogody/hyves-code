@@ -13,7 +13,8 @@
 !/keybindings.json
 !/hooks
 !/commands
-!/agents
+# NOTE: /agents is intentionally NOT versioned — those are project-specific
+# subagents that reference internal projects, and this repo is public.
 
 # --- Belt-and-suspenders: never commit secrets/junk even inside whitelisted dirs ---
 **/.env
