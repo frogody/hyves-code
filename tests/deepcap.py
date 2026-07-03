@@ -82,6 +82,14 @@ def analyze(event, label, r, g, b):
     late = statistics.mean(tail) if tail else 0.0
     allok &= check("decay", early > mid > late and late < 0.15 * peak_e,
                    f"early {early:.1f} > mid {mid:.1f} > late {late:.1f} (peak {peak_e:.1f})")
+
+    # v5.2.2: the wash must light the WHOLE canvas at full strength — the pure
+    # g^1.5 falloff left the far half black on wide terminals and the user read
+    # a fresh effect as "no visual confirmation" (screenshot-verified)
+    fresh = [rw[2] for rw in rows if rw[0] < 2.0 and rw[2]]
+    cover = min(sum(1 for v in vals if v and v >= 0.1) / len(vals) for vals in fresh)
+    allok &= check("full-canvas coverage", cover >= 0.9,
+                   f"min lit fraction over ages<2s: {cover*100:.0f}% (floor 90%)")
     if post:
         allok &= check("expired", all(rw[3] < 0.3 for rw in post),
                        f"energy after TTL: {[round(rw[3], 2) for rw in post]}")

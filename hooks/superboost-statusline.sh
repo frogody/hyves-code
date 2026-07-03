@@ -123,8 +123,13 @@ fi
 # v5.2: smoothstep ease-out decay + gentle sine pulse (~0.4 Hz, <10% luminance
 # swing — WCAG 2.3.1-safe; replaces linear decay + the 4-frame table). Scales 0-100.
 # v5.2.1: phases run on the float clock so decay/pulse glide between renders.
+# v5.2.2: HOLD-then-ease — the pure smoothstep was near-black by mid-life while
+# the label chip stayed lit to TTL, so a glance a few seconds after the event
+# saw "label, no confirmation" (user screenshot-verified). Full strength for the
+# first 35% of TTL, then smoothstep to 0 at TTL — still strictly falling to ~0.
 read -r DECAY PULSE <<<"$(awk -v t="${_t:-0}" -v ttl="$FX_TTL" -v nowf="$NOW_F" 'BEGIN{
-  agef=nowf-t; a=(ttl>0)?1-agef/ttl:0; if(a<0)a=0; if(a>1)a=1; a=a*a*(3-2*a)
+  agef=nowf-t; u=(ttl>0)?agef/ttl:1; if(u<0)u=0; if(u>1)u=1
+  if(u<0.35){a=1}else{a=(1-u)/0.65; a=a*a*(3-2*a)}
   p=0.90+0.10*sin(nowf*2.6)
   printf "%d %d", a*100+0.5, p*100+0.5 }')"
 : "${PULSE:=100}"; : "${DECAY:=0}"
@@ -234,7 +239,10 @@ if [ "$FX_ON" = "1" ] && [ "$CANVAS" -gt 0 ]; then
     for(i=0;i<n;i++){
       j=int(i/3)
       g=(nb<=1)?1:(j/(nb-1))              # 0 far-left .. 1 at the label (right)
-      base=g*sqrt(g)                       # glow falls off with distance (g^1.5)
+      # v5.2.2: FLOORED falloff — pure g^1.5 left the far half of a wide
+      # canvas black even at full strength (user screenshot-verified at ~250
+      # cols); every cell now participates, still brightest at the label
+      base=0.35+0.65*g*sqrt(g)
       s=0.5+0.5*sin(i*0.35+nowf*2.0)       # 1D plasma shimmer (slow, subtle)
       base*=0.72+0.28*s
       if(scan>=0 || sweep>=0) base*=0.35   # dim the glow so the moving head reads
@@ -246,7 +254,7 @@ if [ "$FX_ON" = "1" ] && [ "$CANVAS" -gt 0 ]; then
       if(d2==0 && lvl>0) lvl--
       if(d2==3 && lvl<4 && lvl>0) lvl++
       if(lvl<0)lvl=0; if(lvl>4)lvl=4
-      al=(lvl==0)?0:(lvl==1)?18:(lvl==2)?36:(lvl==3)?56:80   # alpha %
+      al=(lvl==0)?0:(lvl==1)?20:(lvl==2)?40:(lvl==3)?62:82   # alpha % (v5.2.2: punchier)
       r=br+int((fr-br)*al/100); gg=bg+int((fg-bg)*al/100); bl=bb+int((fb-bb)*al/100)
       out=out e "[48;2;" r ";" gg ";" bl "m "
     }

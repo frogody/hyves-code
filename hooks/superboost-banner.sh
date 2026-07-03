@@ -10,7 +10,7 @@
 #   3. Emits the HYVES CODE banner block for Claude to open its first reply with
 # Save to: ~/.claude/hooks/superboost-banner.sh
 
-SUPERBOOST_VERSION="5.2.1"
+SUPERBOOST_VERSION="5.2.2"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"

@@ -1,4 +1,4 @@
-# HYVES CODE V5 (v5.2.1) — Global Configuration (tuned for Claude Fable 5)
+# HYVES CODE V5 (v5.2.2) — Global Configuration (tuned for Claude Fable 5)
 
 Everything in this file is part of **HYVES CODE V5** (Holistic Yield & Validation Engines, by ISYNCSO — formerly "Superboost"; the hook scripts, env vars, and internal identifiers keep the historical `superboost-` prefix so nothing rewires). It activates when the SessionStart hook (`~/.claude/hooks/superboost-banner.sh`) fires — you'll see **"HYVES CODE V5 ACTIVE"** in your system context.
 
@@ -134,11 +134,11 @@ The SessionStart banner emits this line into context every session, and the stat
   `~/.claude/hooks/superboost-fx.sh emit preflight`   (blue) · also `fanout|commit|deploy|blocked|edit|search|think|done|pass|fail`.
   Use this to mark meaningful phase changes (e.g. when a preflight/research phase starts).
 - Effects last `SUPERBOOST_FX_TTL` seconds (default 7), pulsing and decaying as they age. A `Stop` hook emits a slate DONE at end of turn; `SessionEnd` clears the state file.
-- **Motion (v5.2)**: washes shimmer with a 1D plasma field and decay on a smoothstep ease with a gentle <10% sine pulse (~0.4 Hz — photosensitivity-safe per WCAG 2.3.1). Fan-out/deploy carry a Larson scanner; commit a one-shot L→R sweep. All motion is keyed to wall-clock, so a paused frame is a valid still.
+- **Motion (v5.2)**: washes shimmer with a 1D plasma field and decay with a gentle <10% sine pulse (~0.4 Hz — photosensitivity-safe per WCAG 2.3.1). Fan-out/deploy carry a Larson scanner; commit a one-shot L→R sweep. All motion is keyed to wall-clock, so a paused frame is a valid still. **v5.2.2:** the wash is a real confirmation signal — floored falloff lights the whole canvas (not just near the label), and decay holds full strength for the first 35% of TTL before easing to zero.
 - **Boot cinema**: `~/.claude/hooks/hyves-boot.sh` plays an nms-style decrypt reveal of the HYVES CODE logo (alt-screen, synchronized-output frames, live self-test status). Installer/manual use ONLY — never wire it to a session hook: hook stdout lands in model context, and the live TUI owns the terminal.
 
 The statusline (v5.2) is a **full-width HUD painted with truecolor backgrounds**: the **HYVES CODE V5** brand chip + model/effort chips (gold for Fable), workspace dir, a wide green→amber→red RAM gradient bar, ctx-used % (plus a red `200K+` chip past 200k tokens), `fanout~N`, 5h rate use, diff churn `+N/-N`, session cost — and an active effect floods the free canvas with a quantized, dithered background wash in its color. **v5.2.1:** the FX canvas is a guaranteed stage of ≥18 cells — when a terminal is too narrow to fit everything, the RAM bar shrinks and then the churn/dir chips are shed *statically* (never mid-effect), because a starved canvas turns scanner/sweep motion into unreadable mush. Visible glyphs stay pure ASCII with **ANSI SGR only (fg + bg), zero wide glyphs**, so the TUI width calc stays exact (v4's hard-won lesson; doubly justified now that Claude Code wraps renders in DECSET 2026 synchronized output — never emit cursor control/OSC/sync sequences from the statusline). If any terminal miscounts, `SUPERBOOST_STATUSLINE_PLAIN=1` reverts to pure ASCII.
 
 ---
 
-*HYVES CODE V5 (v5.2.1) — formerly Superboost · ISYNCSO · github.com/frogody/hyves-code*
+*HYVES CODE V5 (v5.2.2) — formerly Superboost · ISYNCSO · github.com/frogody/hyves-code*

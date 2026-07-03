@@ -2,7 +2,7 @@
 
 *Holistic Yield & Validation Engines* — formerly **Superboost**. The internal hook scripts, env vars, and sentinels keep the historical `superboost-` prefix, so upgrading is a `git pull`, not a migration.
 
-![version](https://img.shields.io/badge/HYVES%20CODE-V5.2.1-a855f7)
+![version](https://img.shields.io/badge/HYVES%20CODE-V5.2.2-a855f7)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.170-22d3ee)
 ![tuned for](https://img.shields.io/badge/tuned%20for-Claude%20Fable%205-facc15)
 ![safety](https://img.shields.io/badge/auto--mode-guarded-22c55e)
@@ -90,6 +90,17 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 ~/.claude/hooks/bless-hooks.sh                      # re-seal checksums after editing a hook
 ~/.claude/hooks/hyves-boot.sh                       # replay the HYVES CODE boot cinema
 ```
+
+---
+
+## What's new in v5.2.2 — a wash you can actually see
+
+The FX wash was too timid to work as *visual confirmation* (screenshot-verified on a ~250-column terminal): the `g^1.5` distance falloff left the far half of the canvas black even at full strength, and the decay curve was near-black by mid-life while the label chip stayed lit — so a commit glanced at 5 seconds late read as "label, no confirmation."
+
+- **Floored falloff** — `base = 0.35 + 0.65·g^1.5`: every canvas cell participates, still brightest at the label.
+- **Hold-then-ease decay** — full strength for the first 35% of the TTL, then smoothstep to zero at TTL (still strictly falling, so the decay-to-zero verdict holds).
+- **Punchier alpha levels** — 18/36/56/80% → 20/40/62/82%.
+- Measured at 250 columns: **100% of the canvas lit for the first 2s** (was: left two-thirds black), 80% at 4s, 55% at 5s (was: black), fully dark by TTL. `deepcap.py` now enforces ≥90% fresh-wash coverage as a regression check.
 
 ---
 
