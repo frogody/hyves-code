@@ -36,10 +36,10 @@
     "explorer": "haiku"
   },
   "v5_1_changes": [
-    "STATUSLINE v5.1: full-width HUD painted with truecolor BACKGROUNDS — brand/model+effort chips (gold for Fable), wide green->amber->red RAM gradient bar, new ctx-used% / 5h-rate readouts; claims the entire terminal width (COLUMNS from the hook env, minus safety margin)",
+    "STATUSLINE v5.1: full-width HUD painted with truecolor BACKGROUNDS \u2014 brand/model+effort chips (gold for Fable), wide green->amber->red RAM gradient bar, new ctx-used% / 5h-rate readouts; claims the entire terminal width (COLUMNS from the hook env, minus safety margin)",
     "FX WASHES: active effects flood the free canvas with a quantized, dithered background wash in the effect color (3-cell 'pixels', distance falloff, per-second shimmer, pulse + TTL decay); base strip tints toward the effect so the whole bar breathes; duration tunable via SUPERBOOST_FX_TTL (default 7s)",
-    "FIX: safety-guard.sh now fires the red BLOCKED effect itself on a denial (documented since v5.0 but unwired — PostToolUse never runs for a denied call)",
-    "FIX: deploy effect false-positives — indigo now requires a real deploy (platform CLI, git push, package-manager deploy task, or a deploy script in command position), not any command merely containing the word 'deploy'",
+    "FIX: safety-guard.sh now fires the red BLOCKED effect itself on a denial (documented since v5.0 but unwired \u2014 PostToolUse never runs for a denied call)",
+    "FIX: deploy effect false-positives \u2014 indigo now requires a real deploy (platform CLI, git push, package-manager deploy task, or a deploy script in command position), not any command merely containing the word 'deploy'",
     "FIX: narrow terminals get a hard-truncated compact line instead of a wrapped bar",
     "Width safety unchanged: visible glyphs pure ASCII, all color zero-width SGR (fg+bg); SUPERBOOST_STATUSLINE_PLAIN=1 escape hatch intact"
   ],
@@ -62,12 +62,12 @@
     "FIX: removed dead Fast-Mode logic; gitnexus-refresh cwd-guarded, no auto-exec; ram-monitor rotates its log",
     "Model tiering alias-only; config is a git repo"
   ],
-  "blessed_at": "2026-07-03T02:29:44Z",
+  "blessed_at": "2026-07-03T02:34:14Z",
   "scripts": {
     "resource-check.sh": "87b926d9f8f7f5fa711da707eb4196c16bcbb39c12fe070fdebfe770b5e20df1",
     "ram-monitor.sh": "fe81960686b85d6ee1c8eb768ffdb81caf18e1704f34cb4faaa5dfeeb4939b17",
     "resource-guard.sh": "65157c80f117e7b716322ee7516a41656a4a89a7db914ca41f9def29dd54865e",
-    "superboost-banner.sh": "5f280112f9a35a25f0972d1c92831ece6cd469515b59477638c3e403db0ebc0a",
+    "superboost-banner.sh": "6f4a4439610a594fcf6df9c6931f67a5c52515dc1ecb7907d1d5af95b05f8b71",
     "superboost-statusline.sh": "e3271f3451fb815c6ad8367f4a073735e62082975e8a8148803fc036fa979b8f",
     "bless-hooks.sh": "e2d258fafe46e7dc5a007cb782b9fcc4c20292c6bc14caf28982f94f937e0e8d",
     "safety-guard.sh": "59d4c08d59b80adc2f740fdabb739c30c231a8e4d95fdc37cb0fa6a0a53e05e4",

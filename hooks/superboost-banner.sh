@@ -1,5 +1,5 @@
 #!/bin/bash
-# superboost-banner.sh — SessionStart hook for Claude Code Superboost V4
+# superboost-banner.sh — SessionStart hook for Claude Code Superboost V5
 # Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)
 #
 # On every session start:
@@ -8,7 +8,7 @@
 #   3. Outputs banner + health report for Claude to display
 # Save to: ~/.claude/hooks/superboost-banner.sh
 
-SUPERBOOST_VERSION="5.0"
+SUPERBOOST_VERSION="5.1"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
