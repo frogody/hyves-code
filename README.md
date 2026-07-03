@@ -78,4 +78,4 @@ No secrets live in this repo. Store credentials in the macOS keychain and refere
 The `.gitignore` uses a **whitelist** model: everything is ignored except the authored config, so session transcripts, logs, caches, `.env`, and `settings.local.json` can never be committed.
 
 ---
-*ISYNCSO · github.com/frogody/superboost-v4*
+*ISYNCSO · github.com/frogody/superboost-v5*

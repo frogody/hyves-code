@@ -136,4 +136,4 @@ The statusline itself is colorized (RAM gradient bar, colored model/capacity/cos
 
 ---
 
-*Superboost v5.0 "Fable" · ISYNCSO · github.com/frogody/superboost-v4*
+*Superboost v5.0 "Fable" · ISYNCSO · github.com/frogody/superboost-v5*
