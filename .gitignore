@@ -1,0 +1,24 @@
+# Superboost config repo — WHITELIST model.
+# Ignore everything by default, then re-include only authored config.
+# This guarantees session transcripts, logs, caches, and secrets never get committed.
+/*
+
+# --- Authored config worth versioning ---
+!/.gitignore
+!/CLAUDE.md
+!/settings.json
+!/superboost-version.json
+!/superboost-expertise-report.md
+!/keybindings.json
+!/hooks
+!/commands
+!/agents
+
+# --- Belt-and-suspenders: never commit secrets/junk even inside whitelisted dirs ---
+**/.env
+**/.env.*
+**/*.key
+**/*.pem
+**/id_rsa*
+**/.DS_Store
+**/*.log

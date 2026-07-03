@@ -1,0 +1,29 @@
+{
+  "version": "3.0.0",
+  "installed_at": "2026-03-08T17:00:00Z",
+  "upgraded_at": "2026-04-17T00:00:00Z",
+  "source_path": "/Users/godyduinsbergen/.claude/hooks",
+  "project_path": "/Users/godyduinsbergen",
+  "model_baseline": {
+    "default": "claude-opus-4-7",
+    "fast_mode": "claude-opus-4-6",
+    "worker_tier": "claude-sonnet-4-6",
+    "explorer_tier": "claude-haiku-4-5-20251001"
+  },
+  "v3_changes": [
+    "Opus 4.7 awareness in Agent Dispatch Protocol",
+    "Model tiering guidance (Opus for orchestration, Sonnet for workers, Haiku for read-only explorers)",
+    "Pre-Flight Q2 inverted for 1M context + prompt caching era",
+    "Fast mode (/fast) incompatibility warning",
+    "Version aligned across banner, CLAUDE.md, and version.json"
+  ],
+  "scripts": {
+    "resource-check.sh": "81e96a2f28300cd6ff9e517718c93a6677cad5e819a2b0b91c94a66f48018438",
+    "ram-monitor.sh": "32dc5cec63364ace72bf408ad3c9d1ff359571f9d2794a15a5392abf884c7d4e",
+    "resource-guard.sh": "b06799c4530799320e17bef8c7921c78d86bd8d06f234f45094fdb0688158d42",
+    "superboost-banner.sh": "57dfa7ab2fd95a207fc36b3afa5dbc40b9f6c749c565a920bae399132904bc3a",
+    "superboost-statusline.sh": "543106592a6066f0610861a5da1bdbcf704c980e81ae8c6f94562a340acde8cd",
+    "bless-hooks.sh": "4bea16d0f2defb8fdf0eb02271393e1cc7e014ad92d86b96d4c81c680feb0d7d"
+  },
+  "blessed_at": "2026-04-17T01:36:06Z"
+}

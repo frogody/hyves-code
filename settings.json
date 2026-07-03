@@ -1,0 +1,113 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'RESULT=$(~/.claude/hooks/resource-check.sh --quiet 2>/dev/null); CAN=$(echo \"$RESULT\" | python3 -c \"import sys,json; print(json.load(sys.stdin)[\\\"can_spawn\\\"])\"); if [ \"$CAN\" = \"False\" ]; then REASON=$(echo \"$RESULT\" | python3 -c \"import sys,json; print(json.load(sys.stdin)[\\\"reason\\\"])\"); echo \"BLOCKED: Cannot spawn agent — $REASON\" >&2; exit 2; fi; exit 0'"
+          }
+        ]
+      },
+      {
+        "matcher": "TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/resource-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/ram-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-banner.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/gitnexus-refresh.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/hooks/superboost-statusline.sh"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "huggingface-skills@claude-plugins-official": true,
+    "ralph-wiggum@claude-code-plugins": true,
+    "playwright@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "codex@openai-codex": true,
+    "accessibility-compliance@claude-code-workflows": true,
+    "backend-api-security@claude-code-workflows": true,
+    "code-refactoring@claude-code-workflows": true,
+    "codebase-cleanup@claude-code-workflows": true,
+    "code-documentation@claude-code-workflows": true,
+    "comprehensive-review@claude-code-workflows": true,
+    "warp@claude-code-warp": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/openai/codex-plugin-cc.git"
+      }
+    },
+    "claude-code-workflows": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/wshobson/agents.git"
+      },
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "source": "github",
+        "repo": "warpdotdev/claude-code-warp"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "teammateMode": "in-process",
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true
+}
