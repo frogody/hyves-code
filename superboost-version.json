@@ -2,7 +2,7 @@
   "version": "5.2.1",
   "codename": "Hyves",
   "installed_at": "2026-03-08T17:00:00Z",
-  "upgraded_at": "2026-07-03T03:30:00Z",
+  "upgraded_at": "2026-07-03T05:30:00Z",
   "source_path": "/Users/godyduinsbergen/.claude/hooks",
   "project_path": "/Users/godyduinsbergen",
   "target_model": {
@@ -36,6 +36,8 @@
     "explorer": "haiku"
   },
   "v5_2_changes": [
+    "v5.2.1 REGRESSION PASS (2026-07-03, frame-capture verified): (1) FX CANVAS FLOOR — the v5.2 density chips left a 9-cell wash canvas at COLUMNS=150, so scanner/sweep motion read as mush (the Gaussian head, sigma>=2, was as wide as the stage); the statusline now guarantees an 18-cell FX stage STATICALLY — shrink RAM bar, then shed churn, then dir — independent of FX state so the layout never shifts mid-effect. (2) FLOAT EMIT EPOCH — fx.sh wrote integer `date +%s`, starting every animation phase up to 1s late (the commit sweep began mid-canvas with up to 1/3 of its travel gone); it now writes a perl Time::HiRes float (integer fallback) and the statusline gates on the whole-second part. (3) Ambient glow dims 45%->35% while a scanner/sweep head travels, so the head reads crisply. Measured after: sweep monotonic 1-3-7-10-13-16-18-20 across 3s; scanner full-range bounce 1->21->1, moved 11/11 frames, coverage 0.83-0.92, zero freezes; decay 7.0 -> 2.9 -> 0.0 with 0.0 energy past TTL; width exactly COLUMNS-5 in all 66 frames; render ~57ms (target <80ms).",
+    "v5.2.1 TEST HARNESS: new tests/deepcap.py deep animation suite (width law, decay-to-zero, sweep monotonicity, scanner glide — ~25s, exit-coded); fxcap.py wash-run selection is now label-anchored — max-energy selection let the RAM bar masquerade as the wash (its left cells are literally commit-green, t=1.0) and the label chip's pad space joined the run and pinned argmax; verify.sh grew canvas-floor and float-epoch checks (now 40-case guard matrix + 24 named checks). Fresh-boot verified via nested `claude -p`: banner quoted, budget_mode touched, planted FX state cleared by SessionEnd; boot decrypt resolve monotonic 0.01->1.0 over 48 PTY frames.",
     "v5.2.1 FIX (frame-capture verified): animation phases moved to a FLOAT clock (perl Time::HiRes, integer fallback) \u2014 integer `date +%s` froze motion to 1 fps between Claude Code's ~300ms renders and made the scanner teleport (~126deg/step). Scanner re-timed to 1.8 rad/s (~3.5s bounce); base glow dims to 45% while a scanner/sweep head travels so motion reads. Verified: commit sweep monotonic (1-3-7-10-13-16 / 3s), scanner glides full-range with bounce, decay strictly falling (6.51-4.67-2.06-0.00), render ~56ms.",
     "BRAND: statusline chip now reads 'HYVES CODE V5' (HYVES = Holistic Yield & Validation Engines, an ISYNCSO brand)",
     "LIVE BUDGET (review P1): new UserPromptSubmit hook `superboost-parallelism.sh --turn` re-injects the parallelism budget into context the moment the fan-out posture changes mid-session (wide<->balanced<->narrow<->solo); silent on unchanged turns, so zero token ceremony. Fixes the stale SessionStart-only budget.",
@@ -76,18 +78,18 @@
     "FIX: removed dead Fast-Mode logic; gitnexus-refresh cwd-guarded, no auto-exec; ram-monitor rotates its log",
     "Model tiering alias-only; config is a git repo"
   ],
-  "blessed_at": "2026-07-03T04:37:51Z",
+  "blessed_at": "2026-07-03T05:04:08Z",
   "scripts": {
     "resource-check.sh": "87b926d9f8f7f5fa711da707eb4196c16bcbb39c12fe070fdebfe770b5e20df1",
     "ram-monitor.sh": "fe81960686b85d6ee1c8eb768ffdb81caf18e1704f34cb4faaa5dfeeb4939b17",
     "resource-guard.sh": "65157c80f117e7b716322ee7516a41656a4a89a7db914ca41f9def29dd54865e",
     "superboost-banner.sh": "5b142047599e932a36f579d1e7d876d4a668be295addac15cbd05479a2c99ede",
-    "superboost-statusline.sh": "4ee2fd0b7058b0d0a6f4088269b6ebffa15ea1f5899a17a333e5ca7b34a9090e",
+    "superboost-statusline.sh": "6fa58f202166ededea19c92f78c64afac50cb11a16ad9749b7085d57dcc3921c",
     "bless-hooks.sh": "fac9d04bc8019be52733730aa1117168c81b1af93694ed10c96f5be930cce6c9",
     "safety-guard.sh": "06789953a610e915479fee597b313810ea0f012b101c98f2c1bbe00087d4afc0",
     "gitnexus-refresh.sh": "c6c6e9668972b5f3ab0a6a1e0a55a98d8d5d4e1b89c7e2560c6a231072b631e2",
     "superboost-secrets.sh": "0f55ea52c38d5534f65c2ffde51efc32c3f1bfe6da4aa2ededf3f27dfe9c7d34",
-    "superboost-fx.sh": "8ec3c4a529e413b5c633b8852ed6803f857d248669cd1c3d03af2729a7f1feca",
+    "superboost-fx.sh": "90e084d88e761f9155490f3544737804159b76752ae88274a90e9636270d5584",
     "superboost-parallelism.sh": "3bd1c9516dae58ee3602401032e025f6fe70f35b36861fc7597f04934fc79d07",
     "hyves-boot.sh": "994498b5a0e74c7b814458f0ba19c58ecf3cdd8eb8c6fe6c343f6f174b7d1227"
   }

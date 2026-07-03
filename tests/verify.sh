@@ -42,6 +42,14 @@ done
 t "fractional ctx% renders green"  "echo '$RICH' | COLUMNS=160 '$SL' | grep -qF '38;2;34;197;94m ctx 42.5%'"
 t "plain mode branded"             "echo '$RICH' | SUPERBOOST_STATUSLINE_PLAIN=1 '$SL' | grep -qF 'HYVES CODE V5 |'"
 t "empty stdin no crash"           "echo '' | COLUMNS=120 '$SL'"
+# v5.2.1: the FX canvas must be a real stage (>=18 cells) at common widths —
+# measured before the fix: 9 cells at COLUMNS=150 turned scanner motion to mush.
+# In plain text the canvas is the space-run just left of the label: >=20 incl.
+# the cap chip's trailing + label's leading pad.
+"$FX" emit fanout; CVOK=0
+echo "$RICH" | COLUMNS=150 "$SL" | perl -pe 's/\e\[[0-9;]*m//g' | grep -Eq ' {20,}FAN-OUT' && CVOK=1
+"$FX" clear
+t "canvas floor >=18 at COLUMNS=150" "[ $CVOK = 1 ]"
 
 say "fx classification"
 fxcase() { echo "$2" | "$FX"; head -1 "$STATE" 2>/dev/null | grep -q "^$1|"; }
@@ -53,6 +61,9 @@ t "Agent -> fanout"        "fxcase fanout '{\"tool_name\":\"Agent\",\"tool_input
 "$FX" emit commit; BEFORE=$(cat "$STATE")
 echo '{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"}}' | "$FX"
 t "Read leaves state alone" "[ \"\$(cat '$STATE')\" = '$BEFORE' ]"
+# v5.2.1: emit time must be a FLOAT epoch (int truncation started sweep/scanner
+# phases up to 1s late)
+t "fx emits float epoch"    "awk -F'|' 'NR==1{exit (\$6 ~ /^[0-9]+\.[0-9]+$/) ? 0 : 1}' '$STATE'"
 "$FX" clear
 
 say "live budget --turn gating"

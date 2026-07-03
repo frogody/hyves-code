@@ -111,8 +111,12 @@ NOW_F=$(perl -MTime::HiRes=time -e 'printf "%.2f", time' 2>/dev/null)
 FX_ON=0; FX_EVENT=""; FX_LABEL=""; FX_R=0; FX_G=0; FX_B=0; FX_AGE=0; FX_TTL=7
 if [ -f "$FX_STATE" ]; then
   IFS='|' read -r FX_EVENT FX_LABEL FX_R FX_G FX_B _t FX_TTL < "$FX_STATE" 2>/dev/null
-  if [ -n "$_t" ] && [ -n "$FX_TTL" ]; then
-    FX_AGE=$(( NOW - _t ))
+  # v5.2.1: fx.sh now emits a FLOAT epoch (sweep/scanner phases start on time);
+  # bash's integer arithmetic gates on the whole-second part, awk gets the float.
+  _t_i="${_t%%.*}"
+  case "$_t_i" in ''|*[!0-9]*) _t_i="" ;; esac
+  if [ -n "$_t_i" ] && [ -n "$FX_TTL" ]; then
+    FX_AGE=$(( NOW - _t_i ))
     [ "$FX_AGE" -ge 0 ] && [ "$FX_AGE" -lt "$FX_TTL" ] && FX_ON=1
   fi
 fi
@@ -178,11 +182,21 @@ FIXED=$(( ${#BRAND_TXT} + ${#MODEL_TXT} + ${#RAM_LBL} + RB + ${#STATS_TXT} \
         + ${#CTX_TXT} + ${#CAP_TXT} + ${#FXL_TXT} + ${#RL_TXT} + ${#COST_TXT} \
         + ${#DIR_TXT} + ${#CHURN_TXT} + ${#BIG_TXT} ))
 CANVAS=$(( W - FIXED ))
-if [ "$CANVAS" -lt 6 ]; then RB=10; FIXED=$(( FIXED - (W*12/100) + 10 )); CANVAS=$(( W - FIXED )); fi
-# still cramped: shed the v5.2 optional chips (dir, churn) before going compact
-if [ "$CANVAS" -lt 0 ] && { [ -n "$DIR_TXT" ] || [ -n "$CHURN_TXT" ]; }; then
-  FIXED=$(( FIXED - ${#DIR_TXT} - ${#CHURN_TXT} )); DIR_TXT=""; CHURN_TXT=""
-  CANVAS=$(( W - FIXED ))
+# v5.2.1: the canvas is the STAGE for washes/scanner/sweep — below ~18 cells the
+# Gaussian head (sigma clamped >= 2) is as wide as the whole stage and motion
+# reads as mush (measured: a 9-cell canvas at COLUMNS=150 pinned the scanner
+# argmax to the label-side glow in 15/17 frames). Guarantee a minimum stage
+# STATICALLY — independent of FX state, so the layout never shifts mid-effect:
+# shrink the RAM bar first, then shed churn, then dir.
+MIN_CANVAS=18
+if [ "$CANVAS" -lt "$MIN_CANVAS" ] && [ "$RB" -gt 10 ]; then
+  FIXED=$(( FIXED - RB + 10 )); RB=10; CANVAS=$(( W - FIXED ))
+fi
+if [ "$CANVAS" -lt "$MIN_CANVAS" ] && [ -n "$CHURN_TXT" ]; then
+  FIXED=$(( FIXED - ${#CHURN_TXT} )); CHURN_TXT=""; CANVAS=$(( W - FIXED ))
+fi
+if [ "$CANVAS" -lt "$MIN_CANVAS" ] && [ -n "$DIR_TXT" ]; then
+  FIXED=$(( FIXED - ${#DIR_TXT} )); DIR_TXT=""; CANVAS=$(( W - FIXED ))
 fi
 # too narrow for the full layout: compact line, hard-truncated so it can't wrap
 if [ "$CANVAS" -lt 0 ]; then plain_line | cut -c1-"$W"; exit 0; fi
@@ -223,7 +237,7 @@ if [ "$FX_ON" = "1" ] && [ "$CANVAS" -gt 0 ]; then
       base=g*sqrt(g)                       # glow falls off with distance (g^1.5)
       s=0.5+0.5*sin(i*0.35+nowf*2.0)       # 1D plasma shimmer (slow, subtle)
       base*=0.72+0.28*s
-      if(scan>=0 || sweep>=0) base*=0.45   # dim the glow so the moving head reads
+      if(scan>=0 || sweep>=0) base*=0.35   # dim the glow so the moving head reads
       a=base*(dec/100.0)*(pul/100.0)
       if(scan>=0){ d=i-scan; sig=n/10.0; if(sig<2)sig=2; a+=0.9*exp(-d*d/(2*sig*sig))*(dec/100.0) }
       if(sweep>=0){ d=i-sweep; sig=n/14.0; if(sig<2)sig=2; a+=0.8*exp(-d*d/(2*sig*sig)) }

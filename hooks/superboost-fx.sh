@@ -61,7 +61,11 @@ write_fx() {  # $1=effect  $2=optional-label-override
   r="${rest%%|*}"; rest="${rest#*|}"
   g="${rest%%|*}"; b="${rest#*|}"
   [ -n "$label_override" ] && label="$label_override"
-  now="$(date +%s 2>/dev/null)"; [ -z "$now" ] && now=0
+  # v5.2.1: FLOAT emit time. An integer-truncated epoch started every animation
+  # phase up to 1s late — the commit sweep began mid-canvas with up to 1/3 of
+  # its travel gone. perl Time::HiRes ships on every macOS; integer fallback.
+  now="$(perl -MTime::HiRes=time -e 'printf "%.2f", time' 2>/dev/null)"
+  if [ -z "$now" ]; then now="$(date +%s 2>/dev/null)"; [ -z "$now" ] && now=0; fi
   printf '%s|%s|%s|%s|%s|%s|%s\n' "$eff" "$label" "$r" "$g" "$b" "$now" "$FX_TTL" > "$FX_STATE" 2>/dev/null
 }
 

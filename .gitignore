@@ -29,3 +29,4 @@ hooks/validate_report_data.py
 **/id_rsa*
 **/.DS_Store
 **/*.log
+__pycache__/

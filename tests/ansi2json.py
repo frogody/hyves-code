@@ -42,7 +42,7 @@ def capture_statusline(event, label, r, g, b, seconds=7, fps=3):
         "workspace": {"current_dir": "/Users/x/app.isyncso"}})
     t0 = time.time()
     with open(state, "w") as f:
-        f.write(f"{event}|{label}|{r}|{g}|{b}|{int(t0)}|7\n")
+        f.write(f"{event}|{label}|{r}|{g}|{b}|{t0:.2f}|7\n")
     frames = []
     for k in range(seconds * fps):
         out = subprocess.run([sl], input=rich, capture_output=True, text=True,

@@ -71,7 +71,9 @@ def set_state(event, label, r, g, b, t, ttl=7):
         f.write(f"{event}|{label}|{r}|{g}|{b}|{t}|{ttl}\n")
 
 def capture(event, label, r, g, b, seconds=8, per_sec=2):
-    t0 = int(time.time())
+    # float epoch, matching what fx.sh writes since v5.2.1 (an int-truncated
+    # epoch started animation phases up to 1s late)
+    t0 = round(time.time(), 2)
     set_state(event, label, r, g, b, t0)
     frames = []
     for k in range(seconds * per_sec):
@@ -91,22 +93,38 @@ def runs(prof, minlen=8):
     if cur >= minlen: out.append((start, prof[start:start + cur]))
     return out
 
-def wash_stats(frames, er, eg, eb):
-    """Per frame: (age, wash_total, argmax, peak, run_len) for the run with the
-    highest effect-attributed energy (= the wash canvas)."""
+def wash_run(frame, prof, label=None):
+    """The wash canvas is the RIGHTMOST long space-run (it sits just left of the
+    FX label). Two traps this dodges:
+      - Selecting by max energy is wrong: the RAM bar's left cells are literally
+        commit-green (t=1.0), so for green effects it out-scores a decayed wash
+        and masquerades as the canvas.
+      - The label chip's leading pad space (bright effect bg) is contiguous with
+        the wash spaces and joins the run, pinning argmax to the right end —
+        truncate at the label's pad using the KNOWN label text (alpha threshold
+        can't split them: the label pulses down to 0.80x, the wash caps at 0.80).
+    """
+    rs = runs(prof)
+    if not rs:
+        return None
+    start, vals = rs[-1]
+    if label:
+        text = "".join(ch for ch, _ in cells(frame))
+        ti = text.find(f" {label} ")          # index of the leading pad space
+        if start <= ti < start + len(vals):
+            vals = vals[:ti - start]
+    return (start, vals) if vals else None
+
+def wash_stats(frames, er, eg, eb, label=None):
+    """Per frame: (age, wash_total, argmax, peak, run_len) for the wash canvas."""
     rows = []
     for age, fr in frames:
-        prof = canvas_profile(fr, er, eg, eb)
-        best = None
-        for start, vals in runs(prof):
-            total = sum(vals)
-            if best is None or total > best[0]:
-                best = (total, vals)
+        best = wash_run(fr, canvas_profile(fr, er, eg, eb), label)
         if best is None:
             rows.append((round(age, 1), 0, -1, 0, 0)); continue
-        total, vals = best
+        start, vals = best
         peak = max(vals)
-        rows.append((round(age, 1), round(total, 2), vals.index(peak),
+        rows.append((round(age, 1), round(sum(vals), 2), vals.index(peak),
                      round(peak, 2), len(vals)))
     return rows
 
@@ -117,6 +135,6 @@ if __name__ == "__main__":
     label, r, g, b = specs[mode]
     frames = capture(mode, label, r, g, b)
     print(f"== {mode} == (age, wash_total, argmax_pos, peak, run_len)")
-    for row in wash_stats(frames, r, g, b):
+    for row in wash_stats(frames, r, g, b, label):
         print("  ", row)
     subprocess.run([FX, "clear"])

@@ -1,6 +1,6 @@
-# Superboost v5.2 "Hyves"
+# Superboost v5.2.1 "Hyves"
 
-![version](https://img.shields.io/badge/version-5.2%20%22Hyves%22-a855f7)
+![version](https://img.shields.io/badge/version-5.2.1%20%22Hyves%22-a855f7)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.170-22d3ee)
 ![tuned for](https://img.shields.io/badge/tuned%20for-Claude%20Fable%205-facc15)
 ![safety](https://img.shields.io/badge/auto--mode-guarded-22c55e)
@@ -91,6 +91,17 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 
 ---
 
+## What's new in v5.2.1 (regression pass, frame-capture verified)
+
+Every claim below was verified from captured statusline frames (~3fps across the full 7s effect life) and a PTY boot-cinema capture — not by eyeballing.
+
+- **FX canvas floor** — the v5.2 density chips had quietly starved the animation canvas to **9 cells** at a 150-column terminal, turning the scanner and sweep into unreadable mush. The statusline now guarantees an **18-cell FX stage**, shedding statically (RAM bar shrinks → churn chip → dir chip) so the layout never shifts mid-effect. Measured after: scanner bounces full-range `1→21→1`, moving in 11/11 frames with zero freezes; commit sweep monotonic `1→…→20` across its 3s travel.
+- **Float emit epoch** — `superboost-fx.sh` stamped effects with integer `date +%s`, so every animation phase started up to 1s late and the commit sweep could lose a third of its travel. Effects now carry a float epoch (perl `Time::HiRes`, integer fallback).
+- **Crisper heads** — ambient glow dims to 35% (was 45%) while a scanner/sweep head travels.
+- **Deep test suite** — new `tests/deepcap.py` verifies the width law, decay-to-zero, sweep monotonicity, and scanner glide from frame data; `tests/verify.sh` grew canvas-floor and float-epoch checks; `tests/fxcap.py`'s wash detection is now label-anchored (the RAM bar's left cells are literally commit-green and used to masquerade as the wash). Render stays ~57ms against the 80ms budget.
+
+---
+
 ## What's new in v5.2 "Hyves"
 
 **HYVES CODE** (*Holistic Yield & Validation Engines*) is the new face of the HUD — the brand chip now reads `HYVES CODE V5` — and v5.2 is a power pass over every layer, driven by a two-agent review (one auditing the scripts, one researching professional terminal FX).
@@ -130,6 +141,8 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 | `hooks/superboost-secrets.sh` | Keychain‑backed credential manager (values never touch a file). |
 | `superboost-expertise-report.md` | The verified Fable‑5 research brief behind the tuning. |
 | `superboost-version.json` | Version, target‑model spec, model tiers, and hook checksums. |
+| `tests/verify.sh` | Quick regression suite (~15s): hook syntax, bindings, banner, 40‑case guard matrix, statusline width/chips, FX classification, live‑budget gating, boot. |
+| `tests/deepcap.py` · `fxcap.py` · `ansi2json.py` | Deep animation verification: frame captures at ~3fps proving sweep monotonicity, scanner glide, decay‑to‑zero, the width law, and the boot decrypt progression. |
 
 ---
 
