@@ -8,7 +8,7 @@
 #   3. Outputs banner + health report for Claude to display
 # Save to: ~/.claude/hooks/superboost-banner.sh
 
-SUPERBOOST_VERSION="5.1"
+SUPERBOOST_VERSION="5.2"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
@@ -24,7 +24,7 @@ check_fail() { FAIL=$((FAIL + 1)); ISSUES="${ISSUES}FAIL: $1\n"; }
 check_warn() { WARN=$((WARN + 1)); ISSUES="${ISSUES}WARN: $1\n"; }
 
 # 1. Hook scripts exist and are executable
-for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh safety-guard.sh gitnexus-refresh.sh bless-hooks.sh superboost-secrets.sh superboost-fx.sh superboost-parallelism.sh; do
+for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh safety-guard.sh gitnexus-refresh.sh bless-hooks.sh superboost-secrets.sh superboost-fx.sh superboost-parallelism.sh hyves-boot.sh; do
   if [ -x "$HOOKS_DIR/$script" ]; then
     check_pass
   else
@@ -43,6 +43,9 @@ if [ -f "$SETTINGS" ]; then
   grep -q 'superboost-secrets' "$SETTINGS" 2>/dev/null && check_pass || check_fail "SessionStart superboost-secrets (first-boot creds) not configured"
   grep -q 'ram-monitor' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PostToolUse ram-monitor not configured"
   grep -q 'superboost-statusline' "$SETTINGS" 2>/dev/null && check_pass || check_fail "statusLine not configured"
+  # v5.2: the two bindings the v5.1 self-test missed, plus the live-budget hook
+  grep -q 'superboost-fx' "$SETTINGS" 2>/dev/null && check_pass || check_warn "PostToolUse superboost-fx not bound — statusline FX will never fire"
+  grep -q 'parallelism.sh --turn' "$SETTINGS" 2>/dev/null && check_pass || check_warn "UserPromptSubmit live-budget hook not bound — budget is SessionStart-only"
 else
   check_fail "settings.json not found at $SETTINGS"
 fi
@@ -56,6 +59,13 @@ if [ -f "$CLAUDE_MD" ]; then
   grep -q "safety-guard" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing safety-guard reference"
 else
   check_fail "CLAUDE.md not found at $CLAUDE_MD"
+fi
+
+# 3b. jq present — the statusline's session-JSON parse hard-depends on it (v5.2)
+if command -v jq >/dev/null 2>&1; then
+  check_pass
+else
+  check_warn "jq not installed — statusline model/cost/ctx/rate fields will be blank"
 fi
 
 # 4. resource-check.sh runs and returns valid JSON

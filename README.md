@@ -1,6 +1,6 @@
-# Superboost v5.1 "Fable"
+# Superboost v5.2 "Hyves"
 
-![version](https://img.shields.io/badge/version-5.1%20%22Fable%22-a855f7)
+![version](https://img.shields.io/badge/version-5.2%20%22Hyves%22-a855f7)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.170-22d3ee)
 ![tuned for](https://img.shields.io/badge/tuned%20for-Claude%20Fable%205-facc15)
 ![safety](https://img.shields.io/badge/auto--mode-guarded-22c55e)
@@ -87,6 +87,19 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 
 ---
 
+## What's new in v5.2 "Hyves"
+
+**HYVES CODE** (*Holistic Yield & Validation Engines*) is the new face of the HUD — the brand chip now reads `HYVES CODE V5` — and v5.2 is a power pass over every layer, driven by a two-agent review (one auditing the scripts, one researching professional terminal FX).
+
+- **Live parallelism budget** — a `UserPromptSubmit` hook re-injects the fan-out budget into context *the moment the RAM posture changes* (`wide`↔`balanced`↔`narrow`↔`solo`). Silent on unchanged turns; the budget can no longer go stale over a long session.
+- **Outcome-aware FX** — test/build/lint commands now wash the bar **PASS green or FAIL red from the actual result** (the emitter reads the tool response, not just the command). Quiet tools skip the classifier entirely (~7ms).
+- **Cinematic motion, tastefully** — fan-out/deploy washes carry a Larson scanner, commits a one-shot sweep; the wash shimmers with a 1D plasma field and decays on a smoothstep ease with a <10% sine pulse (photosensitivity-safe, WCAG 2.3.1). Every frame is a valid still, so a paused statusline never looks broken.
+- **`hyves-boot.sh`** — an nms/*Sneakers*-style decrypt reveal of the HYVES CODE logo for the installer/first-boot moment: alt-screen, synchronized-output frames, phosphor-green resolve, live self-test status, OSC 8 repo link. Degrades to one plain line when piped. (Deliberately *not* a session hook — hook stdout is model context.)
+- **Denser HUD** — workspace dir, diff churn `+N/-N`, and a red `200K+` chip past 200k tokens; fractional context-% no longer renders red.
+- **Tighter safety-guard** — quoted/trailing-slash `rm -rf` home variants, `git push` with a plus-prefixed refspec (a force-update in disguise), real `.env.*` files, and Bash-path writes to calculator-locked files (redirects/`tee`/`sed -i`) are all now caught. Self-test verifies jq + the FX and live-budget bindings.
+
+---
+
 ## What's new in v5.1
 
 - **Full‑width statusline** — the HUD now claims the entire terminal width with truecolor *background* chips and a wide RAM gradient bar, plus new context‑used %, effort‑level, and 5‑hour‑rate readouts.
@@ -109,6 +122,7 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 | `hooks/safety-guard.sh` | The deny hook that makes auto‑mode safe. |
 | `hooks/resource-guard.sh` · `resource-check.sh` · `ram-monitor.sh` | Live resource probing + spawn throttling. |
 | `hooks/superboost-banner.sh` | SessionStart self‑test + budget emit (silent unless something's wrong). |
+| `hooks/hyves-boot.sh` | The HYVES CODE decrypt boot cinema for installer/first-boot (never a session hook). |
 | `hooks/superboost-secrets.sh` | Keychain‑backed credential manager (values never touch a file). |
 | `superboost-expertise-report.md` | The verified Fable‑5 research brief behind the tuning. |
 | `superboost-version.json` | Version, target‑model spec, model tiers, and hook checksums. |

@@ -38,16 +38,35 @@ if [ "$PLAIN" != "1" ]; then
 fi
 
 # --- Session JSON -> fields (single jq pass; tab-separated) ---
-IFS=$'\t' read -r MODEL COST CTX RLIM EFFORT <<EOF
+IFS=$'\t' read -r MODEL COST CTX RLIM EFFORT ADDED REMOVED CWD BIG <<EOF
 $(echo "$INPUT" | jq -r '[
   (.model.display_name // "?"),
   (.cost.total_cost_usd // 0),
   (.context_window.used_percentage // "-"),
   (.rate_limits.five_hour.used_percentage // "-"),
-  (.effort.level // "-")
+  (.effort.level // "-"),
+  (.cost.total_lines_added // 0),
+  (.cost.total_lines_removed // 0),
+  ((((.workspace.current_dir // .cwd // "") | tostring | split("/") | last) // "")
+    | if . == "" then "-" else . end),
+  (if .exceeds_200k_tokens == true then "1" else "0" end)
 ] | @tsv' 2>/dev/null)
 EOF
+# tab-IFS read collapses EMPTY tsv fields (they'd shift right-hand fields left),
+# hence the "-" placeholder for cwd above and these defaults for a failed jq pass
 [ -z "$MODEL" ] && MODEL="?"
+[ -z "$COST" ] && COST=0
+[ -z "$CTX" ] && CTX="-"
+[ -z "$RLIM" ] && RLIM="-"
+[ -z "$EFFORT" ] && EFFORT="-"
+[ "$CWD" = "-" ] && CWD=""
+# v5.2 hygiene: dir basename must obey the ASCII width law (strip + truncate);
+# churn fields must be integers; ctx% may arrive fractional (B3) -> integer part
+CWD=$(printf '%s' "$CWD" | LC_ALL=C tr -cd '\40-\176' | cut -c1-16)
+case "$ADDED" in ''|*[!0-9]*) ADDED=0 ;; esac
+case "$REMOVED" in ''|*[!0-9]*) REMOVED=0 ;; esac
+[ "$BIG" = "1" ] || BIG=0
+CTX_INT="${CTX%%.*}"; case "$CTX_INT" in ''|*[!0-9]*) CTX_INT="" ;; esac
 
 # --- Live RAM stats ---
 if [ "$(uname)" = "Darwin" ]; then
@@ -83,24 +102,27 @@ else                               CAP="solo";                 CAP_R=239; CAP_G=
 # --- FX state (effect color + freshness) ---
 FX_STATE="${SUPERBOOST_FX_DIR:-$HOME/.claude/fx}/state"
 NOW=$(date +%s 2>/dev/null); [ -z "$NOW" ] && NOW=0
-FX_ON=0; FX_LABEL=""; FX_R=0; FX_G=0; FX_B=0; FX_AGE=0; FX_TTL=7
+FX_ON=0; FX_EVENT=""; FX_LABEL=""; FX_R=0; FX_G=0; FX_B=0; FX_AGE=0; FX_TTL=7
 if [ -f "$FX_STATE" ]; then
-  IFS='|' read -r _e FX_LABEL FX_R FX_G FX_B _t FX_TTL < "$FX_STATE" 2>/dev/null
+  IFS='|' read -r FX_EVENT FX_LABEL FX_R FX_G FX_B _t FX_TTL < "$FX_STATE" 2>/dev/null
   if [ -n "$_t" ] && [ -n "$FX_TTL" ]; then
     FX_AGE=$(( NOW - _t ))
     [ "$FX_AGE" -ge 0 ] && [ "$FX_AGE" -lt "$FX_TTL" ] && FX_ON=1
   fi
 fi
-# pulse frame (shared by wash + label): 4-frame brightness table on wall-clock second
-_frames=(10 8 6 8); PULSE=${_frames[$(( NOW % 4 ))]}
-# decay 0..100 (100 = fresh)
-DECAY=0
-[ "$FX_ON" = "1" ] && DECAY=$(( (FX_TTL - FX_AGE) * 100 / FX_TTL ))
+# v5.2: smoothstep ease-out decay + gentle sine pulse (~0.4 Hz, <10% luminance
+# swing — WCAG 2.3.1-safe; replaces linear decay + the 4-frame table). Scales 0-100.
+read -r DECAY PULSE <<<"$(awk -v age="$FX_AGE" -v ttl="$FX_TTL" -v now="$NOW" 'BEGIN{
+  a=(ttl>0)?1-age/ttl:0; if(a<0)a=0; if(a>1)a=1; a=a*a*(3-2*a)
+  p=0.90+0.10*sin(now*2.6)
+  printf "%d %d", a*100+0.5, p*100+0.5 }')"
+: "${PULSE:=100}"; : "${DECAY:=0}"
+[ "$FX_ON" = "1" ] || DECAY=0
 
 # --- Base strip color: dark slate, tinted faintly toward an active effect ---
 B0_R=22; B0_G=24; B0_B=31
 if [ "$FX_ON" = "1" ]; then
-  _tint=$(( 14 * DECAY * PULSE / 1000 ))   # 0..14% toward effect color
+  _tint=$(( 14 * DECAY * PULSE / 10000 ))   # 0..14% toward effect color
   B0_R=$(( B0_R + (FX_R - B0_R) * _tint / 100 ))
   B0_G=$(( B0_G + (FX_G - B0_G) * _tint / 100 ))
   B0_B=$(( B0_B + (FX_B - B0_B) * _tint / 100 ))
@@ -134,14 +156,27 @@ RL_TXT=""
 COST_TXT="$(printf ' $%.2f ' "$COST")"
 FXL_TXT=""
 [ "$FX_ON" = "1" ] && FXL_TXT=" ${FX_LABEL} "
+# v5.2 density chips: workspace dir, diff churn, past-200k flag (all ASCII)
+DIR_TXT=""
+[ -n "$CWD" ] && DIR_TXT=" ${CWD} "
+CHURN_TXT=""
+[ $(( ADDED + REMOVED )) -gt 0 ] && CHURN_TXT=" +${ADDED} -${REMOVED} "
+BIG_TXT=""
+[ "$BIG" = "1" ] && BIG_TXT=" 200K+ "
 
 # RAM bar width scales with the terminal (~12% of W, min 10)
 RB=$(( W * 12 / 100 )); [ "$RB" -lt 10 ] && RB=10
 
 FIXED=$(( ${#BRAND_TXT} + ${#MODEL_TXT} + ${#RAM_LBL} + RB + ${#STATS_TXT} \
-        + ${#CTX_TXT} + ${#CAP_TXT} + ${#FXL_TXT} + ${#RL_TXT} + ${#COST_TXT} ))
+        + ${#CTX_TXT} + ${#CAP_TXT} + ${#FXL_TXT} + ${#RL_TXT} + ${#COST_TXT} \
+        + ${#DIR_TXT} + ${#CHURN_TXT} + ${#BIG_TXT} ))
 CANVAS=$(( W - FIXED ))
 if [ "$CANVAS" -lt 6 ]; then RB=10; FIXED=$(( FIXED - (W*12/100) + 10 )); CANVAS=$(( W - FIXED )); fi
+# still cramped: shed the v5.2 optional chips (dir, churn) before going compact
+if [ "$CANVAS" -lt 0 ] && { [ -n "$DIR_TXT" ] || [ -n "$CHURN_TXT" ]; }; then
+  FIXED=$(( FIXED - ${#DIR_TXT} - ${#CHURN_TXT} )); DIR_TXT=""; CHURN_TXT=""
+  CANVAS=$(( W - FIXED ))
+fi
 # too narrow for the full layout: compact line, hard-truncated so it can't wrap
 if [ "$CANVAS" -lt 0 ]; then plain_line | cut -c1-"$W"; exit 0; fi
 
@@ -158,23 +193,35 @@ RAMBAR=$(awk -v n="$RB" -v used="$USED_PCT" 'BEGIN{
   printf "%s", out
 }')
 
-# --- FX canvas: quantized blocky wash (3-cell pixels), dithered + pulsed + decayed ---
+# --- FX canvas: quantized blocky wash (3-cell pixels), dithered + pulsed + decayed.
+# v5.2: 1D plasma shimmer within the effect color, plus event-typed motion —
+# fanout/deploy get a Larson scanner, commit a one-shot L->R sweep. All positions
+# are pure functions of wall-clock, so a paused frame is a valid still. ---
 if [ "$FX_ON" = "1" ] && [ "$CANVAS" -gt 0 ]; then
-  WASH=$(awk -v n="$CANVAS" -v now="$NOW" -v dec="$DECAY" -v pul="$PULSE" \
+  WASH=$(awk -v n="$CANVAS" -v now="$NOW" -v age="$FX_AGE" -v dec="$DECAY" -v pul="$PULSE" \
+             -v ev="$FX_EVENT" \
              -v fr="$FX_R" -v fg="$FX_G" -v fb="$FX_B" \
              -v br="$B0_R" -v bg="$B0_G" -v bb="$B0_B" 'BEGIN{
     e=sprintf("%c",27); nb=int((n+2)/3); out=""
+    scan=-1; sweep=-1
+    if(ev=="fanout"||ev=="deploy"){ scan=(n-1)*(0.5+0.5*sin(now*2.2)) }
+    else if(ev=="commit" && age<3){ sweep=n*age/3.0 }
     for(i=0;i<n;i++){
       j=int(i/3)
       g=(nb<=1)?1:(j/(nb-1))              # 0 far-left .. 1 at the label (right)
       base=g*sqrt(g)                       # glow falls off with distance (g^1.5)
-      lvl=int(base*4*(dec/100)*(pul/10)+0.5)
-      d=(j*73+now*13)%4                    # per-second dither -> shimmering pixels
-      if(d==0 && lvl>0) lvl--
-      if(d==3 && lvl<4 && lvl>0) lvl++
+      s=0.5+0.5*sin(i*0.35+now*2.0)        # 1D plasma shimmer (slow, subtle)
+      base*=0.72+0.28*s
+      a=base*(dec/100.0)*(pul/100.0)
+      if(scan>=0){ d=i-scan; sig=n/10.0; if(sig<2)sig=2; a+=0.9*exp(-d*d/(2*sig*sig))*(dec/100.0) }
+      if(sweep>=0){ d=i-sweep; sig=n/14.0; if(sig<2)sig=2; a+=0.8*exp(-d*d/(2*sig*sig)) }
+      lvl=int(a*4+0.5)
+      d2=(j*73+now*13)%4                   # per-second dither -> shimmering pixels
+      if(d2==0 && lvl>0) lvl--
+      if(d2==3 && lvl<4 && lvl>0) lvl++
       if(lvl<0)lvl=0; if(lvl>4)lvl=4
-      a=(lvl==0)?0:(lvl==1)?18:(lvl==2)?36:(lvl==3)?56:80   # alpha %
-      r=br+int((fr-br)*a/100); gg=bg+int((fg-bg)*a/100); bl=bb+int((fb-bb)*a/100)
+      al=(lvl==0)?0:(lvl==1)?18:(lvl==2)?36:(lvl==3)?56:80   # alpha %
+      r=br+int((fr-br)*al/100); gg=bg+int((fg-bg)*al/100); bl=bb+int((fb-bb)*al/100)
       out=out e "[48;2;" r ";" gg ";" bl "m "
     }
     printf "%s", out
@@ -197,9 +244,11 @@ STATS="${BG0}$(c "$ST_R" "$ST_G" "$ST_B")${STATS_TXT}${RST}"
 RAML="${BG0}$(c 148 163 184)${RAM_LBL}${RST}"
 CTXP=""
 if [ -n "$CTX_TXT" ]; then
-  if   [ "${CTX:-0}" -lt 60 ] 2>/dev/null; then CX_R=34;  CX_G=197; CX_B=94
-  elif [ "${CTX:-0}" -lt 85 ] 2>/dev/null; then CX_R=245; CX_G=158; CX_B=11
-  else                                          CX_R=239; CX_G=68;  CX_B=68; fi
+  # B3 fix: compare the integer part — a fractional used_percentage (e.g. 42.5)
+  # made both integer tests error out and fall through to red
+  if   [ "${CTX_INT:-0}" -lt 60 ]; then CX_R=34;  CX_G=197; CX_B=94
+  elif [ "${CTX_INT:-0}" -lt 85 ]; then CX_R=245; CX_G=158; CX_B=11
+  else                                  CX_R=239; CX_G=68;  CX_B=68; fi
   CTXP="${BG0}$(c "$CX_R" "$CX_G" "$CX_B")${CTX_TXT}${RST}"
 fi
 CAPP="${BG0}$(c "$CAP_R" "$CAP_G" "$CAP_B")${CAP_TXT}${RST}"
@@ -208,11 +257,18 @@ RLP=""
 COSTP="${BG0}$(c 148 163 184)${COST_TXT}${RST}"
 FXLP=""
 if [ "$FX_ON" = "1" ]; then
-  # label chip pulses with the same table; bright effect bg, dark text
-  LR=$(( FX_R * PULSE / 10 )); LG=$(( FX_G * PULSE / 10 )); LB=$(( FX_B * PULSE / 10 ))
+  # label chip pulses with the same sine; bright effect bg, dark text
+  LR=$(( FX_R * PULSE / 100 )); LG=$(( FX_G * PULSE / 100 )); LB=$(( FX_B * PULSE / 100 ))
   FXLP="$(b "$LR" "$LG" "$LB")$(c 15 15 20)${BOLD}${FXL_TXT}${RST}"
 fi
+# v5.2 density chips
+DIRP=""
+[ -n "$DIR_TXT" ] && DIRP="${BG0}$(c 148 163 184)${DIM}${DIR_TXT}${RST}"
+CHURNP=""
+[ -n "$CHURN_TXT" ] && CHURNP="${BG0}$(c 134 239 172) +${ADDED}$(c 252 165 165) -${REMOVED} ${RST}"
+BIGP=""
+[ -n "$BIG_TXT" ] && BIGP="$(b 127 29 29)$(c 254 202 202)${BOLD}${BIG_TXT}${RST}"
 
-printf '%s%s%s%s%s%s%s%s%s%s%s%s\n' \
-  "$BRAND" "$MODEL_CHIP" "$RAML" "$RAMBAR" "$RST" "$STATS" "$CTXP" "$CAPP" \
-  "$WASH" "$FXLP" "$RLP" "$COSTP"
+printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
+  "$BRAND" "$MODEL_CHIP" "$DIRP" "$RAML" "$RAMBAR" "$RST" "$STATS" "$CTXP" "$BIGP" \
+  "$CAPP" "$WASH" "$FXLP" "$RLP" "$CHURNP" "$COSTP"

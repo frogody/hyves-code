@@ -22,6 +22,9 @@
 #   superboost-parallelism.sh                 # human summary
 #   superboost-parallelism.sh --budget        # JSON: {concurrent_agents,workflow_width,mode,...}
 #   superboost-parallelism.sh --line          # single terse line for context/banner
+#   superboost-parallelism.sh --turn          # UserPromptSubmit hook (v5.2): prints the
+#                                             # line ONLY when the mode changed since the
+#                                             # last turn — live budget, zero ceremony
 #
 # Tunables (env): RESOURCE_PER_AGENT_MB (default 1000), WORKFLOW_MAX_WIDTH (default 16).
 
@@ -30,14 +33,15 @@ OUT="human"
 case "$1" in
   --budget|-b) OUT="json" ;;
   --line|-l)   OUT="line" ;;
+  --turn|-t)   OUT="turn" ;;
 esac
 
 CHECK_JSON="$("${SCRIPT_DIR}/resource-check.sh" --quiet 2>/dev/null)"
 
-CHECK_JSON="$CHECK_JSON" \
+RESULT="$(CHECK_JSON="$CHECK_JSON" \
 WORKFLOW_MAX_WIDTH="${WORKFLOW_MAX_WIDTH:-16}" \
 OUT="$OUT" \
-python3 <<'PY' 2>/dev/null || { echo "Parallelism budget unavailable (resource probe failed)."; exit 0; }
+python3 <<'PY' 2>/dev/null
 import json, os
 
 try:
@@ -84,7 +88,7 @@ budget = {
 
 if out == "json":
     print(json.dumps(budget))
-elif out == "line":
+elif out in ("line", "turn"):
     print(f"Parallelism budget: mode={mode} | ~{concurrent} concurrent agents | "
           f"Workflow width {workflow_width} | {avail_gb}GB free")
 else:
@@ -96,4 +100,32 @@ else:
     print("")
     print(hint)
 PY
+)"
+
+if [ -z "$RESULT" ]; then
+  # per-turn probe failure stays SILENT (no context noise); explicit calls report it
+  [ "$OUT" = "turn" ] && exit 0
+  echo "Parallelism budget unavailable (resource probe failed)."
+  exit 0
+fi
+
+# v5.2: stash the mode so --turn can detect changes. --line (SessionStart) seeds it.
+if [ "$OUT" = "line" ] || [ "$OUT" = "turn" ]; then
+  STASH_DIR="${SUPERBOOST_FX_DIR:-$HOME/.claude/fx}"
+  STASH="$STASH_DIR/budget_mode"
+  MODE="$(printf '%s' "$RESULT" | sed -n 's/.*mode=\([a-z][a-z]*\).*/\1/p')"
+  LAST="$(cat "$STASH" 2>/dev/null)"
+  mkdir -p "$STASH_DIR" 2>/dev/null
+  [ -n "$MODE" ] && printf '%s' "$MODE" > "$STASH" 2>/dev/null
+  if [ "$OUT" = "turn" ]; then
+    # speak ONLY when the posture flipped (wide<->balanced<->narrow<->solo);
+    # a silent turn means "budget unchanged" and costs zero tokens
+    if [ -n "$MODE" ] && [ -n "$LAST" ] && [ "$MODE" != "$LAST" ]; then
+      printf '%s\n' "${RESULT}  ->  Fan-out posture CHANGED (was ${LAST}). Re-size any planned agent/Workflow fan-out to this budget."
+    fi
+    exit 0
+  fi
+fi
+
+printf '%s\n' "$RESULT"
 exit 0

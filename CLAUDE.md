@@ -1,10 +1,10 @@
-# Superboost v5.1 — Global Configuration (tuned for Claude Fable 5)
+# Superboost v5.2 "Hyves" — Global Configuration (tuned for Claude Fable 5)
 
-Everything in this file is part of Superboost v5.1. It activates when the SessionStart hook (`~/.claude/hooks/superboost-banner.sh`) fires — you'll see **"SUPERBOOST V5 ACTIVE"** in your system context.
+Everything in this file is part of Superboost v5.2 (brand: **HYVES CODE V5** — Holistic Yield & Validation Engines, by ISYNCSO). It activates when the SessionStart hook (`~/.claude/hooks/superboost-banner.sh`) fires — you'll see **"SUPERBOOST V5 ACTIVE"** in your system context.
 
 **Activation check:** If your system context contains "SUPERBOOST V5 ACTIVE", these rules apply. If it does not, Superboost is not installed and you should IGNORE everything below.
 
-**What v5 is:** v4's philosophy — *enforce with hooks, don't narrate with ceremony; lean on the native harness (Workflow tool, agent teams) over hand-rolled orchestration* — retuned for **Claude Fable 5** as the default model, plus two new capabilities: **RAM-scaled parallelism** (size fan-out to free memory, §10) and a **colored terminal FX layer** (§11). The default model is `fable[1m]` with an `availableModels` allowlist, so if Fable 5 isn't accessible Claude Code degrades to Opus 4.8 with a warning rather than failing.
+**What v5 is:** v4's philosophy — *enforce with hooks, don't narrate with ceremony; lean on the native harness (Workflow tool, agent teams) over hand-rolled orchestration* — retuned for **Claude Fable 5** as the default model, plus two new capabilities: **RAM-scaled parallelism** (size fan-out to free memory, §10) and a **colored terminal FX layer** (§11). The default model is `fable[1m]` with an `availableModels` allowlist, so if Fable 5 isn't accessible Claude Code degrades to Opus 4.8 with a warning rather than failing. **v5.2 "Hyves" adds:** a LIVE parallelism budget (re-injected per turn the moment the posture changes, §10), outcome-aware FX (test/build results wash the bar PASS-green/FAIL-red, §11), event-typed statusline motion, and the `hyves-boot.sh` decrypt boot cinema for installer moments.
 
 **Prerequisites (verified):** Fable 5 needs **Claude Code ≥ v2.1.170** (older versions can't show or select it — `claude update`), is **never an account default** (you opt in via the `model` setting, `/model fable`, or the **`best`** alias = "Fable 5 where the org has access, else the latest Opus" — `best` is the cleanest graceful-degradation selector if you'd rather not pin `fable`), and is **not available under zero data retention (ZDR)**. If any of these don't hold, the `availableModels` allowlist quietly falls back to Opus.
 
@@ -119,7 +119,7 @@ Fable 5 behaves differently from the Opus family. These are the levers that matt
 - **mode `balanced`** (3–7) → fan out for genuinely independent streams; keep sequential work solo.
 - **mode `narrow`/`solo`** (≤2 / can't spawn) → one helper at most, or solo.
 
-The SessionStart banner emits this line into context every session, and the statusline shows it live as `fanout~N`. Before a large fan-out, glance at (or re-query) the budget and size the work to it. When RAM is ample, **use it** — wide async delegation is where Fable 5 + Superboost beats Fable 5 alone; when RAM is tight, the guard (§3) and the budget both tell you to stay solo.
+The SessionStart banner emits this line into context every session, and the statusline shows it live as `fanout~N`. **v5.2:** a `UserPromptSubmit` hook (`--turn`) re-emits the line into context the moment the mode flips (wide↔balanced↔narrow↔solo) — so the budget in context is never stale; a silent turn means "unchanged". Before a large fan-out, glance at (or re-query) the budget and size the work to it. When RAM is ample, **use it** — wide async delegation is where Fable 5 + Superboost beats Fable 5 alone; when RAM is tight, the guard (§3) and the budget both tell you to stay solo.
 
 ---
 
@@ -127,14 +127,16 @@ The SessionStart banner emits this line into context every session, and the stat
 
 `superboost-fx.sh` gives the terminal a colored feedback layer without polluting context (it writes a tiny state file, prints nothing; the statusline renders it):
 
-- **Automatic** (PostToolUse): notable actions light up — fan-out=cyan, commit=green, deploy=indigo, edit=amber, web-research=violet. Safety blocks fire red from `safety-guard.sh` itself (a denied call never reaches PostToolUse). Quiet tools (reads/greps) don't flash.
+- **Automatic** (PostToolUse): notable actions light up — fan-out=cyan, commit=green, deploy=indigo, edit=amber, web-research=violet. **v5.2: outcome-aware** — test/build/lint/typecheck commands wash **PASS bright-green or FAIL soft-red from the actual tool result**, and quiet tools (reads/greps) skip the classifier entirely (~7ms). Safety blocks fire red from `safety-guard.sh` itself (a denied call never reaches PostToolUse).
 - **Manual** — trigger an effect explicitly from a skill/command/step:
-  `~/.claude/hooks/superboost-fx.sh emit preflight`   (blue) · also `fanout|commit|deploy|blocked|edit|search|think|done`.
+  `~/.claude/hooks/superboost-fx.sh emit preflight`   (blue) · also `fanout|commit|deploy|blocked|edit|search|think|done|pass|fail`.
   Use this to mark meaningful phase changes (e.g. when a preflight/research phase starts).
-- Effects last `SUPERBOOST_FX_TTL` seconds (default 7), pulsing and decaying as they age.
+- Effects last `SUPERBOOST_FX_TTL` seconds (default 7), pulsing and decaying as they age. A `Stop` hook emits a slate DONE at end of turn; `SessionEnd` clears the state file.
+- **Motion (v5.2)**: washes shimmer with a 1D plasma field and decay on a smoothstep ease with a gentle <10% sine pulse (~0.4 Hz — photosensitivity-safe per WCAG 2.3.1). Fan-out/deploy carry a Larson scanner; commit a one-shot L→R sweep. All motion is keyed to wall-clock, so a paused frame is a valid still.
+- **Boot cinema**: `~/.claude/hooks/hyves-boot.sh` plays an nms-style decrypt reveal of the HYVES CODE logo (alt-screen, synchronized-output frames, live self-test status). Installer/manual use ONLY — never wire it to a session hook: hook stdout lands in model context, and the live TUI owns the terminal.
 
-The statusline (v5.1) is a **full-width HUD painted with truecolor backgrounds**: brand + model/effort chips (gold for Fable), a wide green→amber→red RAM gradient bar, ctx-used %, `fanout~N`, 5h rate use, session cost — and an active effect floods the free canvas with a quantized, dithered background wash in its color. Visible glyphs stay pure ASCII with **ANSI SGR only (fg + bg), zero wide glyphs**, so the TUI width calc stays exact (v4's hard-won lesson). If any terminal miscounts, `SUPERBOOST_STATUSLINE_PLAIN=1` reverts to pure ASCII.
+The statusline (v5.2) is a **full-width HUD painted with truecolor backgrounds**: the **HYVES CODE V5** brand chip + model/effort chips (gold for Fable), workspace dir, a wide green→amber→red RAM gradient bar, ctx-used % (plus a red `200K+` chip past 200k tokens), `fanout~N`, 5h rate use, diff churn `+N/-N`, session cost — and an active effect floods the free canvas with a quantized, dithered background wash in its color. Visible glyphs stay pure ASCII with **ANSI SGR only (fg + bg), zero wide glyphs**, so the TUI width calc stays exact (v4's hard-won lesson; doubly justified now that Claude Code wraps renders in DECSET 2026 synchronized output — never emit cursor control/OSC/sync sequences from the statusline). If any terminal miscounts, `SUPERBOOST_STATUSLINE_PLAIN=1` reverts to pure ASCII.
 
 ---
 
-*Superboost v5.1 "Fable" · ISYNCSO · github.com/frogody/superboost-v5*
+*Superboost v5.2 "Hyves" — HYVES CODE V5 · ISYNCSO · github.com/frogody/superboost-v5*

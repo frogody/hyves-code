@@ -15,6 +15,12 @@
 #
 # Bind to PreToolUse matchers: Bash, Write, Edit, MultiEdit.
 # Claude Code blocks a tool on exit code 2 (stderr is fed back to the model).
+#
+# KNOWN LIMIT (deliberate): patterns match the RAW command string, so a benign
+# command merely CONTAINING a trigger substring (e.g. `git commit -m "revert the
+# force push"`, a heredoc that mentions mkfs) can be blocked. That direction is
+# fail-SAFE: reword the command or run it manually. Do not "fix" this with shell
+# parsing — the simplicity is the reliability.
 
 TOOL_INPUT=$(cat)
 
@@ -47,9 +53,11 @@ if tool == "Bash":
         tail = m.group(1)
         has_rf = bool(re.search(r"-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r", tail)
                       or (re.search(r"-r\b", tail) and re.search(r"-f\b", tail)))
+        # v5.2 (B1): also catch quoted targets ("$HOME"), trailing slashes (~/, $HOME/)
+        roots = r"(/|~|\$HOME|\$\{HOME\}|/\*|~/\*|\*)"
         targets_root = bool(
-            re.search(r"\s(/|~|\$HOME|\$\{HOME\}|/\*|~/\*|\*)\s*($|;|&&|\|)", tail)
-            or re.search(r"\s(/|~|\$HOME|\$\{HOME\})\s*$", tail)
+            re.search(r"[\s'\"]" + roots + r"/?['\"]?\s*($|;|&&|\||\))", tail)
+            or re.search(r"[\s'\"](/|~|\$HOME|\$\{HOME\})/?['\"]?\s*$", tail)
         )
         if has_rf and targets_root:
             block("rm -rf targeting / or $HOME. Refusing; run it manually if truly intended.")
@@ -67,11 +75,27 @@ if tool == "Bash":
     if re.search(r"\bgit\s+push\b[^\n]*(--force\b|--force-with-lease\b|\s-f\b)", cmd):
         block("git force-push rewrites remote history. Push normally or run manually.")
 
+    # v5.2 (B2): a `+` refspec (git push origin +main) force-updates too
+    if re.search(r"\bgit\s+push\b[^\n]*\s\+[\w/:~^-]", cmd):
+        block("git push with a + refspec force-updates remote history. Push normally or run manually.")
+
     # secret exfiltration over the network
     if re.search(r"\b(curl|wget|nc|ncat|scp|rsync)\b", cmd) \
        and re.search(r"(\.env\b|id_rsa|\.pem\b|\.aws/credentials|\.ssh/id_|\.npmrc|\bsecret\b|token=)", cmd, re.I) \
        and re.search(r"https?://|@[\w.-]+:", cmd):
         block("possible secret exfiltration over the network.")
+
+    # v5.2 (P6): calculator lock, Bash write-path. The Write/Edit lock below was
+    # bypassable via shell redirects/tee/sed -i. Read-only mentions (cat, grep,
+    # diff without a write token) still pass.
+    locked = r"(?:formulas|useCalculations|woningvorming)\.ts\b"
+    if re.search(r"(?:>>?\s*\S*" + locked + r")"
+                 r"|(?:\btee\b[^|;&\n]*" + locked + r")"
+                 r"|(?:\bsed\b[^\n]*\s-i[^\n]*" + locked + r")"
+                 r"|(?:\b(?:cp|mv|rm|dd|ln|truncate)\b[^\n]*" + locked + r")", cmd):
+        block("Bash write/delete touching a calculator-locked file (formulas.ts / "
+              "useCalculations.ts / woningvorming.ts). See project CLAUDE.md for the "
+              "deliberate-unlock procedure.")
 
     sys.exit(0)
 
@@ -84,8 +108,12 @@ if tool in ("Write", "Edit", "MultiEdit"):
         block(f"'{base}' is a calculator-locked file. Editing calc logic requires a deliberate, "
               f"explicit unlock — temporarily disable this hook (see project CLAUDE.md).")
 
-    # Never write to credential paths
-    if re.search(r"/\.(ssh|aws|gnupg)/", fp) or base == ".env" or re.search(r"\.(pem|key)$", fp):
+    # Never write to credential paths. v5.2 (B4, user-approved): .env.local/
+    # .env.production etc. covered too; .env.example/.sample/.template stay
+    # writable (no secrets in templates).
+    if re.search(r"/\.(ssh|aws|gnupg)/", fp) \
+       or re.search(r"(^|/)\.env(\.(?!example$|sample$|template$)[\w.-]+)?$", fp) \
+       or re.search(r"\.(pem|key)$", fp):
         block(f"writing to a credential path ({fp}).")
 
     sys.exit(0)

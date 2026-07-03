@@ -26,6 +26,8 @@
 #   blocked    #ef4444  BLOCKED     (red)      edit      #f59e0b  EDIT      (amber)
 #   search     #a855f7  SEARCH      (violet)   think     #14b8a6  THINK     (teal)
 #   done       #64748b  DONE        (slate)
+#   pass       #4ade80  PASS        (bright green)  v5.2: test/build/lint succeeded
+#   fail       #f87171  FAIL        (soft red)      v5.2: test/build/lint failed
 
 FX_DIR="${SUPERBOOST_FX_DIR:-$HOME/.claude/fx}"
 FX_STATE="$FX_DIR/state"
@@ -44,6 +46,8 @@ fx_palette() {
     search)    echo "SEARCH|168|85|247" ;;
     think)     echo "THINK|20|184|166" ;;
     done)      echo "DONE|100|116|139" ;;
+    pass)      echo "PASS|74|222|128" ;;
+    fail)      echo "FAIL|248|113|113" ;;
     *)         echo "" ;;
   esac
 }
@@ -77,6 +81,14 @@ fi
 TOOL_INPUT="$(cat 2>/dev/null)"
 [ -z "$TOOL_INPUT" ] && exit 0
 
+# v5.2 (P5): cheap bash gate — skip the python classifier entirely for quiet
+# tools (Read/Grep/Glob/...). Over-matching is harmless: python then classifies
+# to nothing, exactly as before; this only saves the ~30ms interpreter startup.
+case "$TOOL_INPUT" in
+  *Agent*|*TeamCreate*|*Task*|*Workflow*|*Write*|*Edit*|*NotebookEdit*|*WebSearch*|*WebFetch*|*Bash*) : ;;
+  *) exit 0 ;;
+esac
+
 EFFECT="$(FX_INPUT="$TOOL_INPUT" python3 <<'PY' 2>/dev/null
 import json, os, re
 try:
@@ -87,6 +99,20 @@ except Exception:
 tool = d.get("tool_name", d.get("name", "")) or ""
 inp = d.get("tool_input", d.get("input", {})) or {}
 cmd = (inp.get("command", "") or "") if isinstance(inp, dict) else ""
+
+# v5.2 (P4): PostToolUse stdin also carries the tool RESULT — use it
+resp = d.get("tool_response", d.get("response", {})) or {}
+def resp_failed():
+    if not isinstance(resp, dict):
+        return False
+    if resp.get("is_error") is True or resp.get("isError") is True \
+       or resp.get("interrupted") is True:
+        return True
+    for k in ("exit_code", "exitCode", "return_code", "returnCode", "code"):
+        rc = resp.get(k)
+        if isinstance(rc, int) and rc != 0:
+            return True
+    return False
 
 # Spawns -> fan-out
 if tool in ("Agent", "TeamCreate", "Task", "Workflow"):
@@ -113,6 +139,15 @@ if tool == "Bash" and cmd:
         print("deploy"); raise SystemExit(0)
     if re.search(r"\bgit\s+commit\b", cmd):
         print("commit"); raise SystemExit(0)
+    # v5.2 (P4): test/build/lint OUTCOME -> PASS (green) / FAIL (red). This is
+    # the highest-signal event the v5.1 classifier missed: not "a tool ran" but
+    # "the thing worked / broke".
+    if re.search(r"\b(npm|pnpm|yarn|bun)\s+(run\s+)?(test|build|lint|typecheck|check)\b", cmd) \
+       or re.search(r"\bmake\s+(test|build|lint|check)\b", cmd) \
+       or re.search(r"\b(pytest|vitest|jest|tsc|eslint)\b", cmd) \
+       or re.search(r"\bgo\s+(test|build|vet)\b", cmd) \
+       or re.search(r"\bcargo\s+(test|build|check|clippy)\b", cmd):
+        print("fail" if resp_failed() else "pass"); raise SystemExit(0)
 
 # Everything else (Read, Grep, Glob, plain Bash, etc.) -> no effect; let the prior decay.
 raise SystemExit(0)
