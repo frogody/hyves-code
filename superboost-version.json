@@ -1,8 +1,8 @@
 {
-  "version": "5.4.0",
+  "version": "5.4.1",
   "codename": "Radar",
   "installed_at": "2026-03-08T17:00:00Z",
-  "upgraded_at": "2026-07-03T09:30:00Z",
+  "upgraded_at": "2026-07-03T10:30:00Z",
   "source_path": "/Users/godyduinsbergen/.claude/hooks",
   "project_path": "/Users/godyduinsbergen",
   "repo": "github.com/frogody/hyves-code",
@@ -37,6 +37,7 @@
     "explorer": "haiku"
   },
   "v5_4_changes": [
+    "v5.4.1 QUIET (user feedback: 'looks like a circus'): the steady-state bar is now calm \u2014 QUIET BY DEFAULT is the first law of the grammar (\u00a711). A healthy value renders NEUTRAL slate; hue appears only at attention thresholds or on events. Concretely: RAM bar dropped the always-on green->amber->red positional gradient for a single state-chosen hue (slate / amber >=75 / red >=85, dark ghost); RAM stats + ctx + fanout~N readouts neutral until pressure (fanout colored only when tight/solo); churn desaturated (data, not status); model chip = identity hue as TEXT on a dark chip instead of a solid gold slab; brand violet deepened off-neon (#7c3aed -> #5b21b6). Washes/alerts unchanged \u2014 events and 200K+/ctx>=85 chips are where color lives. Measured: 28 -> 11 distinct SGR colors in the steady-state render at COLUMNS=150. verify.sh 75 -> 78 checks (neutral ctx readout, single-hue bar, neutral fanout, gold-text-not-slab).",
     "v5.4.0 ATTENTION PUSHES: native macOS notifications for the two moments the terminal itself cannot carry \u2014 'Claude needs you' (Notification hook: permission_prompt/idle_prompt/agent_needs_input/elicitation_dialog, with the CC message + project dir in the body) and 'Claude finished' when a turn ran past SUPERBOOST_PUSH_LONG_TURN_SEC (45s; `emit turn` stamps turnstart.<sid8>, `emit done` consumes it). The pink attn wash is invisible when the window is occluded (App Nap pauses renders) \u2014 which is exactly when the user needs the shoulder-tap. Gates in order: SUPERBOOST_PUSH=0 opt-out; 90s rate limit (SUPERBOOST_PUSH_MIN_GAP); SUPERBOOST_PUSH_DRYRUN=1 records intent for tests; frontmost-terminal suppression via lsappinfo (SUPERBOOST_PUSH=2 forces); macOS-only, silent no-op elsewhere. NO new settings wiring \u2014 rides the v5.3 Notification/UserPromptSubmit/Stop bindings.",
     "v5.4.0 THREE BUDGETS: RAM was the only budget with a feedback loop; now rate-limit and context have one too. The statusline stashes live session stats (ctx|5h|7d|cost|dir, change-gated + atomic, fx/stats.<sid8>); the existing UserPromptSubmit --turn hook reads the stash and injects ONE actionable line per threshold crossing \u2014 5h>=80%: tier down to sonnet/haiku, narrow fan-out, batch work; ctx>=80%: checkpoint durable state, delegate exploration, /compact at a natural boundary. Hysteresis via fx/warned.<sid8> (re-arm below 70), silent otherwise \u2014 same zero-ceremony contract as the v5.2 live budget. Plus a 7d weekly-quota chip that appears ONLY >=70% (amber, red >=90) in the session-budget group.",
     "v5.4.0 COST LEDGER + hyves CLI: SessionEnd (fx.sh clear) folds the final stats snapshot into logs/cost-ledger.tsv (date/sid/dir/cost; cost is cumulative per session so readers aggregate max-per-sid \u2014 duplicate folds harmless; crashed sessions folded best-effort at next clear before pruning). New hooks/hyves.sh single front door: status (boot mark + budgets), doctor [--full] (self-test verbatim + suites), stats [days] (per-day bar chart + per-project totals from the ledger), demo (cycle all FX washes), update (git pull --ff-only + re-bless + self-test), version. Suggested alias: hyves=~/.claude/hooks/hyves.sh. hyves.sh joins the bless TRACKED set and the banner self-test (13 scripts, 37 checks).",
@@ -96,13 +97,13 @@
     "FIX: removed dead Fast-Mode logic; gitnexus-refresh cwd-guarded, no auto-exec; ram-monitor rotates its log",
     "Model tiering alias-only; config is a git repo"
   ],
-  "blessed_at": "2026-07-03T06:55:28Z",
+  "blessed_at": "2026-07-03T07:04:57Z",
   "scripts": {
     "resource-check.sh": "ee9f48fca47b67a515ad4c2b9abae85dfe2a7a01e6a832aafa80d227bc4d6163",
     "ram-monitor.sh": "5f612400952415bd966b9f8a49019afb6663db53a4648eec65168d738be38c1a",
     "resource-guard.sh": "65157c80f117e7b716322ee7516a41656a4a89a7db914ca41f9def29dd54865e",
-    "superboost-banner.sh": "2069ce424a3501b1c93daa01fef602ce59ab081cdf30a6138be190df5cd6b3fe",
-    "superboost-statusline.sh": "097985a98c70d844536d3488cfcfa2c620abc0c3cb8fe91235187c1390af80c5",
+    "superboost-banner.sh": "455e3bfcf034bc099912dcc3d9cee12122073b103ee3eba39aaee3f6495d9ed3",
+    "superboost-statusline.sh": "1e9e15f0b0f4e8df579c01f3838cecd2c6c1de43829f03a7850f64bba55c2b7a",
     "bless-hooks.sh": "bf6125cc79fedb64302ac00b294cbda63926ea7472eceef61d189833a331bd7e",
     "safety-guard.sh": "06789953a610e915479fee597b313810ea0f012b101c98f2c1bbe00087d4afc0",
     "gitnexus-refresh.sh": "c6c6e9668972b5f3ab0a6a1e0a55a98d8d5d4e1b89c7e2560c6a231072b631e2",

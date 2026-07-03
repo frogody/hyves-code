@@ -11,19 +11,28 @@
 #     SESSION    ctx used% (solid alert >=85%), 200K+ flag, 5h rate, cost
 #     ACTIVITY   FX wash canvas + effect label pinned at the right edge
 #
+#   QUIET BY DEFAULT (v5.4.1, the first law of the grammar): a HEALTHY value
+#   renders NEUTRAL slate — hue appears only when a state needs attention
+#   (amber/red thresholds) or an event fires (FX wash/label). The steady-state
+#   bar is calm; color is the exception that carries the signal.
+#
 #   HUE FAMILIES (one family = one meaning, everywhere):
-#     violet+gold IDENTITY (brand, Fable=gold / Opus=violet) — never status
-#     green       HEALTHY/CONFIRMED (RAM+ctx ok, churn +, commit, pass)
-#     amber       CAUTION/CHANGE   (RAM+ctx mid, tight budget, edit, compact)
-#     red         CRITICAL/FAILED  (RAM+ctx critical, 200K+, solo, churn -,
+#     violet+gold IDENTITY (brand chip solid; model chip = identity hue as
+#                 TEXT on a dark chip) — never status
+#     green       CONFIRMED EVENTS (commit, pass; churn + is desaturated data)
+#     amber       CAUTION/CHANGE   (RAM>=75, ctx>=60, tight budget, 7d>=70,
+#                                   edit, compact)
+#     red         CRITICAL/FAILED  (RAM>=85, ctx>=85 solid, 200K+, solo,
 #                                   blocked, fail, error)
-#     cyan        PARALLELISM      (fanout~N, fanout, join)
+#     cyan        PARALLELISM EVENTS (fanout, join washes; the fanout~N
+#                 readout is neutral until the budget constrains you)
 #     blue        INFORMATION WORK (preflight, search, think, turn/WORKING)
 #     indigo      SHIPPING         (deploy)
 #     pink        NEEDS YOU        (attn — the only pink anywhere on the bar)
-#     slate       NEUTRAL/IDLE     (dir, 5h, cost, done, idle heartbeat)
+#     slate       NEUTRAL/HEALTHY  (all readouts at rest, dir, 5h, cost, done,
+#                                   RAM bar fill, idle heartbeat)
 #
-#   EMPHASIS TIERS (exactly three): SOLID chip (bg+bold: identity + urgent
+#   EMPHASIS TIERS (exactly three): SOLID chip (bg+bold: brand + urgent
 #   alerts + FX label) > TINTED readout (colored fg on the dark base strip) >
 #   DIM context (dir). Every chip pads one space each side.
 #
@@ -131,8 +140,9 @@ PER_AGENT_MB="${RESOURCE_PER_AGENT_MB:-1000}"
 MAX_AGENTS=$(( (AVAIL_MB - SAFETY_MB) / PER_AGENT_MB )); [ "$MAX_AGENTS" -lt 0 ] && MAX_AGENTS=0
 MAX_AGENT_CAP="${RESOURCE_MAX_AGENT_CAP:-20}"
 [ "$MAX_AGENTS" -gt "$MAX_AGENT_CAP" ] && MAX_AGENTS="$MAX_AGENT_CAP"
-if   [ "$MAX_AGENTS" -ge 8 ]; then CAP="fanout~${MAX_AGENTS}"; CAP_R=34;  CAP_G=211; CAP_B=238
-elif [ "$MAX_AGENTS" -ge 3 ]; then CAP="fanout~${MAX_AGENTS}"; CAP_R=245; CAP_G=158; CAP_B=11
+# v5.4.1 quiet: capacity reads neutral while healthy — a permanently glowing
+# cyan chip was noise; hue appears only when the budget CONSTRAINS you
+if   [ "$MAX_AGENTS" -ge 3 ]; then CAP="fanout~${MAX_AGENTS}"; CAP_R=148; CAP_G=163; CAP_B=184
 elif [ "$MAX_AGENTS" -ge 1 ]; then CAP="tight~${MAX_AGENTS}";  CAP_R=245; CAP_G=158; CAP_B=11
 else                               CAP="solo";                 CAP_R=239; CAP_G=68;  CAP_B=68; fi
 
@@ -298,14 +308,20 @@ fi
 # too narrow for the full layout: compact line, hard-truncated so it can't wrap
 if [ "$CANVAS" -lt 0 ]; then plain_line | cut -c1-"$W"; exit 0; fi
 
-# --- RAM bar: bg-colored cell gradient; filled bright, unfilled dark ghost ---
-RAMBAR=$(awk -v n="$RB" -v used="$USED_PCT" 'BEGIN{
+# --- RAM bar (v5.4.1 "quiet"): SINGLE-hue fill chosen by state, dark ghost
+# for the rest. The old positional green->amber->red gradient painted a rainbow
+# even on an idle machine — the loudest steady-state element on the bar. Now:
+# neutral slate while healthy, amber >=75% used, red >=85%; hue change IS the
+# signal, exactly once, when it matters. ---
+if   [ "$USED_PCT" -ge 85 ]; then RB_R=239; RB_G=68;  RB_B=68
+elif [ "$USED_PCT" -ge 75 ]; then RB_R=245; RB_G=158; RB_B=11
+else                              RB_R=100; RB_G=116; RB_B=139; fi
+RAMBAR=$(awk -v n="$RB" -v used="$USED_PCT" \
+             -v fr="$RB_R" -v fg="$RB_G" -v fb="$RB_B" 'BEGIN{
   e=sprintf("%c",27); fill=int(n*used/100+0.5); out=""
   for(i=0;i<n;i++){
-    t=i/(n-1)
-    if(t<0.55){u=t/0.55; r=34+int((245-34)*u);  g=197+int((158-197)*u); bl=94+int((11-94)*u)}
-    else      {u=(t-0.55)/0.45; r=245+int((239-245)*u); g=158+int((68-158)*u); bl=11+int((68-11)*u)}
-    if(i>=fill){r=int(r*22/100)+14; g=int(g*22/100)+14; bl=int(bl*22/100)+14}
+    if(i<fill){r=fr; g=fg; bl=fb}
+    else      {r=34; g=37; bl=45}
     out=out e "[48;2;" r ";" g ";" bl "m "
   }
   printf "%s", out
@@ -371,15 +387,19 @@ else
 fi
 
 # --- Chips ---
-BRAND="$(b 124 58 237)$(c 255 255 255)${BOLD}${BRAND_TXT}${RST}"
+# v5.4.1 quiet: ONE solid anchor (the brand chip, deepened off-neon violet);
+# the model chip keeps its identity hue in the TEXT on a dark chip instead of
+# a solid slab — same meaning, a tenth of the paint
+BRAND="$(b 91 33 182)$(c 237 233 254)${BOLD}${BRAND_TXT}${RST}"
 case "$MODEL" in
-  *[Ff]able*) MODEL_CHIP="$(b 250 204 21)$(c 40 28 0)${BOLD}${MODEL_TXT}${RST}" ;;
-  *[Oo]pus*)  MODEL_CHIP="$(b 124 58 237)$(c 255 255 255)${BOLD}${MODEL_TXT}${RST}" ;;
-  *)          MODEL_CHIP="$(b 71 85 105)$(c 255 255 255)${BOLD}${MODEL_TXT}${RST}" ;;
+  *[Ff]able*) MODEL_CHIP="$(b 35 32 18)$(c 250 204 21)${BOLD}${MODEL_TXT}${RST}" ;;
+  *[Oo]pus*)  MODEL_CHIP="$(b 30 26 44)$(c 167 139 250)${BOLD}${MODEL_TXT}${RST}" ;;
+  *)          MODEL_CHIP="$(b 40 44 54)$(c 226 232 240)${BOLD}${MODEL_TXT}${RST}" ;;
 esac
-if   [ "$USED_PCT" -lt 50 ]; then ST_R=34;  ST_G=197; ST_B=94
-elif [ "$USED_PCT" -lt 75 ]; then ST_R=245; ST_G=158; ST_B=11
-else                              ST_R=239; ST_G=68;  ST_B=68; fi
+# readouts are neutral while healthy; amber/red only under pressure
+if   [ "$USED_PCT" -ge 85 ]; then ST_R=239; ST_G=68;  ST_B=68
+elif [ "$USED_PCT" -ge 75 ]; then ST_R=245; ST_G=158; ST_B=11
+else                              ST_R=148; ST_G=163; ST_B=184; fi
 STATS="${BG0}$(c "$ST_R" "$ST_G" "$ST_B")${STATS_TXT}${RST}"
 RAML="${BG0}$(c 148 163 184)${RAM_LBL}${RST}"
 CTXP=""
@@ -391,7 +411,7 @@ if [ -n "$CTX_TXT" ]; then
   if [ "${CTX_INT:-0}" -ge 85 ]; then
     CTXP="$(b 127 29 29)$(c 254 202 202)${BOLD}${CTX_TXT}${RST}"
   else
-    if [ "${CTX_INT:-0}" -lt 60 ]; then CX_R=34;  CX_G=197; CX_B=94
+    if [ "${CTX_INT:-0}" -lt 60 ]; then CX_R=148; CX_G=163; CX_B=184
     else                                CX_R=245; CX_G=158; CX_B=11; fi
     CTXP="${BG0}$(c "$CX_R" "$CX_G" "$CX_B")${CTX_TXT}${RST}"
   fi
@@ -416,7 +436,8 @@ fi
 DIRP=""
 [ -n "$DIR_TXT" ] && DIRP="${BG0}$(c 148 163 184)${DIM}${DIR_TXT}${RST}"
 CHURNP=""
-[ -n "$CHURN_TXT" ] && CHURNP="${BG0}$(c 134 239 172) +${ADDED}$(c 252 165 165) -${REMOVED} ${RST}"
+# churn is passive data, not status — desaturated diff hues, not neon
+[ -n "$CHURN_TXT" ] && CHURNP="${BG0}$(c 110 160 130) +${ADDED}$(c 180 130 130) -${REMOVED} ${RST}"
 BIGP=""
 [ -n "$BIG_TXT" ] && BIGP="$(b 127 29 29)$(c 254 202 202)${BOLD}${BIG_TXT}${RST}"
 

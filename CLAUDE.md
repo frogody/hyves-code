@@ -1,4 +1,4 @@
-# HYVES CODE V5 (v5.4.0) — Global Configuration (tuned for Claude Fable 5)
+# HYVES CODE V5 (v5.4.1) — Global Configuration (tuned for Claude Fable 5)
 
 Everything in this file is part of **HYVES CODE V5** (Holistic Yield & Validation Engines, by ISYNCSO — formerly "Superboost"; the hook scripts, env vars, and internal identifiers keep the historical `superboost-` prefix so nothing rewires). It activates when the SessionStart hook (`~/.claude/hooks/superboost-banner.sh`) fires — you'll see **"HYVES CODE V5 ACTIVE"** in your system context.
 
@@ -134,23 +134,25 @@ Act on these lines when they appear — they are computed from the live session,
 
 `superboost-fx.sh` gives the terminal a colored feedback layer without polluting context (it writes a tiny state file, prints nothing; the statusline renders it). Since v5.3 the whole bar obeys **one visual grammar**; any new chip or effect must fit it or change it *here first*.
 
+**Quiet by default (v5.4.1 — the first law):** a healthy value renders NEUTRAL slate. Hue appears only when a state crosses an attention threshold or an event fires. The steady-state bar is calm; color is the exception that carries the signal.
+
 **Hue families (one family = one meaning, everywhere on the bar):**
 
 | Family | Meaning | Where |
 |---|---|---|
-| violet + gold | IDENTITY | brand chip; model chip (Fable=gold, Opus=violet). Never status. |
-| green | HEALTHY / CONFIRMED | RAM+ctx healthy, churn `+N`, `commit` #22c55e, `pass` #4ade80 |
-| amber | CAUTION / CHANGE | RAM+ctx mid, `tight~N`, `edit` #f59e0b, `compact` #fbbf24 |
-| red | CRITICAL / FAILED | RAM+ctx critical, `200K+`, `solo`, churn `-N`, `blocked` #ef4444, `fail` #f87171, `error` #dc2626 |
-| cyan | PARALLELISM | `fanout~N` chip, `fanout` #22d3ee, `join` #67e8f9 |
+| violet + gold | IDENTITY | brand chip (solid, deep violet); model chip = identity hue as TEXT on a dark chip (Fable=gold, Opus=violet). Never status. |
+| green | CONFIRMED EVENTS | `commit` #22c55e, `pass` #4ade80 washes (churn `+N` is desaturated data, not status) |
+| amber | CAUTION / CHANGE | RAM ≥75%, ctx ≥60%, `tight~N`, `7d` ≥70%, `edit` #f59e0b, `compact` #fbbf24 |
+| red | CRITICAL / FAILED | RAM ≥85%, ctx ≥85% (solid), `200K+`, `solo`, `blocked` #ef4444, `fail` #f87171, `error` #dc2626 |
+| cyan | PARALLELISM EVENTS | `fanout` #22d3ee, `join` #67e8f9 washes (the `fanout~N` readout stays neutral until the budget constrains you) |
 | blue | INFORMATION WORK | `preflight` #3b82f6, `search` #0ea5e9, `think` #2563eb, `turn` #93c5fd |
 | indigo | SHIPPING | `deploy` #6366f1 |
 | pink | NEEDS YOU | `attn` #ec4899 — deliberately the only pink anywhere |
-| slate | NEUTRAL / IDLE | dir, 5h, cost, `done` #64748b, idle heartbeat |
+| slate | NEUTRAL / HEALTHY | all readouts at rest, RAM bar fill, dir, 5h, cost, `done` #64748b, idle heartbeat |
 
 (v5.4: a `7d N%` weekly-quota chip joins the session-budget group ONLY when ≥70% — amber, red ≥90. A healthy week earns no pixels.)
 
-(v5.3 recolors enforcing this: `search` left violet — violet is identity; `think` left teal — too close to parallelism cyan.)
+(v5.3 recolors enforcing this: `search` left violet — violet is identity; `think` left teal — too close to parallelism cyan.) (v5.4.1 "Quiet": the RAM bar dropped its always-on green→amber→red gradient for a single state-chosen hue — neutral / amber ≥75 / red ≥85 — and green/cyan left the steady-state readouts entirely; user feedback: the bar read as a circus.)
 
 **Role order (left → right):** IDENTITY (brand, model+effort) → WORKSPACE (dir, churn) → MACHINE (RAM bar+stats, `fanout~N`) → SESSION BUDGET (ctx%, `200K+`, 5h, cost) → ACTIVITY (FX wash canvas + effect label pinned at the right edge). **Emphasis tiers (exactly three):** SOLID chip (bg+bold — identity, urgent alerts, FX label) > TINTED readout (colored fg on the dark base strip) > DIM context (dir). Every chip pads one space each side. ctx ≥ 85% escalates from tinted to a SOLID red alert chip.
 
@@ -170,4 +172,4 @@ The statusline is a **full-width HUD painted with truecolor backgrounds** (chips
 
 ---
 
-*HYVES CODE V5 (v5.4.0) — formerly Superboost · ISYNCSO · github.com/frogody/hyves-code*
+*HYVES CODE V5 (v5.4.1) — formerly Superboost · ISYNCSO · github.com/frogody/hyves-code*

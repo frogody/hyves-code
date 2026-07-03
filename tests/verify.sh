@@ -56,7 +56,11 @@ for W in 200 160 140 120 60; do
   LEN=$(echo "$RICH" | COLUMNS=$W "$SL" | perl -pe 's/\e\[[0-9;]*m//g' | awk '{print length($0)}')
   if [ "$LEN" -le $((W-5)) ] && [ "$LEN" -ge 40 ]; then echo "  ok   COLUMNS=$W -> $LEN"; else echo "  FAIL COLUMNS=$W -> $LEN"; FAILS=$((FAILS+1)); fi
 done
-t "fractional ctx% renders green"  "echo '$RICH' | COLUMNS=160 '$SL' | grep -qF '38;2;34;197;94m ctx 42.5%'"
+# v5.4.1 quiet-by-default: healthy readouts are NEUTRAL slate, never green/cyan
+t "fractional ctx% renders neutral" "echo '$RICH' | COLUMNS=160 '$SL' | grep -qF '38;2;148;163;184m ctx 42.5%'"
+t "RAM bar single-hue (no rainbow)" "! (echo '$RICH' | COLUMNS=160 '$SL' | grep -q '48;2;34;197;94')"
+t "fanout readout neutral"          "echo '$RICH' | COLUMNS=160 '$SL' | grep -qE '38;2;148;163;184m (fanout|tight)~' || echo '$RICH' | COLUMNS=160 '$SL' | perl -pe 's/\e\[[0-9;]*m//g' | grep -q ' solo '"
+t "model chip gold text, no slab"   "echo '$RICH' | COLUMNS=160 '$SL' | grep -q '38;2;250;204;21m' && ! (echo '$RICH' | COLUMNS=160 '$SL' | grep -q '48;2;250;204;21')"
 t "plain mode branded"             "echo '$RICH' | SUPERBOOST_STATUSLINE_PLAIN=1 '$SL' | grep -qF 'HYVES CODE V5 |'"
 t "empty stdin no crash"           "echo '' | COLUMNS=120 '$SL'"
 # v5.2.1: the FX canvas must be a real stage (>=18 cells) at common widths —
