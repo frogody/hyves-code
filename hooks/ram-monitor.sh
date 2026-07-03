@@ -28,8 +28,13 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
   TOTAL=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 1)
+  # awk exiting 0 with no output leaves the fallback unfired -> empty vars;
+  # guard the division (empty TOTAL evaluates to 0 -> arithmetic error)
+  case "$AVAIL_MB" in ''|*[!0-9]*) AVAIL_MB=0 ;; esac
+  case "$TOTAL"    in ''|*[!0-9]*|0) TOTAL=1 ;; esac
   MEM_PCT=$(( AVAIL_MB * 100 / TOTAL ))
 fi
+case "$MEM_PCT" in ''|*[!0-9]*) MEM_PCT=50 ;; esac
 
 # --- Increment counter for sampling + periodic heavy check ---
 COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)

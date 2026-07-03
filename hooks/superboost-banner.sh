@@ -10,7 +10,7 @@
 #   3. Emits the HYVES CODE banner block for Claude to open its first reply with
 # Save to: ~/.claude/hooks/superboost-banner.sh
 
-SUPERBOOST_VERSION="5.2.2"
+SUPERBOOST_VERSION="5.3.0"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
@@ -48,6 +48,13 @@ if [ -f "$SETTINGS" ]; then
   # v5.2: the two bindings the v5.1 self-test missed, plus the live-budget hook
   grep -q 'superboost-fx' "$SETTINGS" 2>/dev/null && check_pass || check_warn "PostToolUse superboost-fx not bound — statusline FX will never fire"
   grep -q 'parallelism.sh --turn' "$SETTINGS" 2>/dev/null && check_pass || check_warn "UserPromptSubmit live-budget hook not bound — budget is SessionStart-only"
+  # v5.3: lifecycle FX wiring (user-approved 2026-07-03)
+  grep -q 'PostToolUseFailure' "$SETTINGS" 2>/dev/null && check_pass || check_warn "PostToolUseFailure not bound — FAIL/ERROR washes will not fire on current Claude Code"
+  grep -q 'emit turn' "$SETTINGS" 2>/dev/null && check_pass || check_warn "UserPromptSubmit 'emit turn' not bound — no turn-start flash"
+  grep -q 'emit join' "$SETTINGS" 2>/dev/null && check_pass || check_warn "SubagentStop 'emit join' not bound — sub-agent completion invisible"
+  grep -q 'superboost-fx.sh notify' "$SETTINGS" 2>/dev/null && check_pass || check_warn "Notification hook not bound — waiting-on-you (attn) wash will not fire"
+  grep -q 'emit compact' "$SETTINGS" 2>/dev/null && check_pass || check_warn "PreCompact 'emit compact' not bound — no compaction warning"
+  grep -q '"refreshInterval"' "$SETTINGS" 2>/dev/null && check_pass || check_warn "statusLine refreshInterval missing — FX freeze while the session idles"
 else
   check_fail "settings.json not found at $SETTINGS"
 fi
@@ -138,15 +145,14 @@ if [ "$(uname)" = "Darwin" ]; then
   SPEC_P=$(echo "$VM" | awk '/^Pages speculative:/ {gsub(/[^0-9]/,"",$3); print $3+0}')
   AVAIL_MB=$(( (FREE_P + INACT_P + PURG_P + SPEC_P) * PAGE_SIZE / 1024 / 1024 ))
   TOTAL_MB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 ))
-  LOAD_AVG=$(sysctl -n vm.loadavg 2>/dev/null | awk '{print $2}')
 else
   AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
   TOTAL_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
-  LOAD_AVG=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)
 fi
+case "$AVAIL_MB" in ''|*[!0-9]*) AVAIL_MB=0 ;; esac
+case "$TOTAL_MB" in ''|*[!0-9]*) TOTAL_MB=0 ;; esac
 
 AVAIL_GB=$(awk "BEGIN {printf \"%.1f\", $AVAIL_MB / 1024}")
-TOTAL_GB=$(awk "BEGIN {printf \"%.0f\", $TOTAL_MB / 1024}")
 
 # --- Calculate max agents ---
 SAFETY_MB=$(( TOTAL_MB * 15 / 100 ))

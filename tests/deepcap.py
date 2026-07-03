@@ -20,6 +20,7 @@ from fxcap import cells, canvas_profile, wash_run, set_state, RICH, SL, FX
 
 COLS = 150
 EXPECT_W = COLS - 5
+HEART_RGB = (32, 36, 46)  # base(22,24,31) + 14% toward slate(100,116,139)
 
 def render_timed():
     t0 = time.time()
@@ -77,7 +78,11 @@ def analyze(event, label, r, g, b):
 
     peak_e = max(e for _, e in live)
     early = statistics.mean(e for a, e in live if a < 2.0)
-    mid = statistics.mean(e for a, e in live if 3.0 <= a < 5.0)
+    # mid window starts at 4.0s, NOT 3.0s: the v5.2.2 hold-then-ease decay is
+    # still ~96% at 3s, inside the ±10% pulse noise — early-vs-mid was a coin
+    # flip there (observed flake: early 8.2 vs mid 8.2). At 4.0–5.5s the ease
+    # sits near 50%, giving the comparison a real margin.
+    mid = statistics.mean(e for a, e in live if 4.0 <= a < 5.5)
     tail = [e for a, e in live if a >= 6.0]
     late = statistics.mean(tail) if tail else 0.0
     allok &= check("decay", early > mid > late and late < 0.15 * peak_e,
@@ -91,8 +96,21 @@ def analyze(event, label, r, g, b):
     allok &= check("full-canvas coverage", cover >= 0.9,
                    f"min lit fraction over ages<2s: {cover*100:.0f}% (floor 90%)")
     if post:
-        allok &= check("expired", all(rw[3] < 0.3 for rw in post),
-                       f"energy after TTL: {[round(rw[3], 2) for rw in post]}")
+        # v5.3: after TTL a WORK event hands off to the slate heartbeat, so the
+        # canvas is not black — but it must hold ZERO effect-colored energy.
+        # Mask cells that are exactly the heartbeat color before scoring.
+        post_e = []
+        for age, fr in frames:
+            if age < 7.0:
+                continue
+            prof = canvas_profile(fr, r, g, b)
+            cs = cells(fr)
+            prof = [0.0 if (v and cs[i][1] == HEART_RGB) else v
+                    for i, v in enumerate(prof)]
+            best = wash_run(fr, prof, label)
+            post_e.append(0.0 if best is None else sum(best[1]))
+        allok &= check("expired", all(e < 0.3 for e in post_e),
+                       f"effect energy after TTL (heartbeat masked): {[round(e, 2) for e in post_e]}")
 
     if event == "commit":
         # sweep runs 0..3s; sample while it's live, with margin for render latency
@@ -132,11 +150,38 @@ def analyze(event, label, r, g, b):
 
     return allok
 
+def analyze_heartbeat():
+    """v5.3: an expired WORK event must leave a faint drifting slate shimmer
+    (turn still running); done/attn must leave the canvas black."""
+    print("\n== heartbeat ==")
+    ok = True
+    set_state("edit", "EDIT", 245, 158, 11, round(time.time() - 10, 2))
+    frames = []
+    for _ in range(4):
+        fr, _ms = render_timed()
+        frames.append(fr)
+        time.sleep(0.4)
+    widths = [len(cells(fr)) for fr in frames]
+    ok &= check("width", all(w == EXPECT_W for w in widths),
+                f"all {len(widths)} frames == {EXPECT_W}? got {sorted(set(widths))}")
+    lit = [sum(1 for ch, bg in cells(fr) if ch == " " and bg == HEART_RGB) for fr in frames]
+    ok &= check("lit after stale edit", all(n > 0 for n in lit), f"lit cells per frame: {lit}")
+    patterns = [tuple(i for i, (ch, bg) in enumerate(cells(fr)) if bg == HEART_RGB) for fr in frames]
+    ok &= check("drifts (wall-clock)", len(set(patterns)) > 1,
+                f"{len(set(patterns))} distinct patterns over {len(frames)} frames")
+    set_state("done", "DONE", 100, 116, 139, round(time.time() - 10, 2))
+    fr, _ms = render_timed()
+    dark = sum(1 for ch, bg in cells(fr) if bg == HEART_RGB)
+    ok &= check("black after done", dark == 0, f"heartbeat cells after done: {dark}")
+    subprocess.run([FX, "clear"], capture_output=True)
+    return ok
+
 if __name__ == "__main__":
     ok = True
     for ev, (lb, r, g, b) in {"fanout": ("FAN-OUT", 34, 211, 238),
                               "commit": ("COMMIT", 34, 197, 94),
                               "fail":   ("FAIL", 248, 113, 113)}.items():
         ok &= analyze(ev, lb, r, g, b)
+    ok &= analyze_heartbeat()
     print("\nDEEPCAP:", "ALL PASS" if ok else "FAILURES")
     sys.exit(0 if ok else 1)

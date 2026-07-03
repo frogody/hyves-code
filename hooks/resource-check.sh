@@ -20,11 +20,18 @@ QUIET=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --min-agents) MIN_AGENTS="$2"; shift 2 ;;
+        # `shift 2` with no value left would fail and never advance -> infinite loop;
+        # a following flag must not be swallowed as the count either
+        --min-agents)
+            case "${2:-}" in
+                ''|-*) MIN_AGENTS=1; shift ;;
+                *) MIN_AGENTS="$2"; shift 2 ;;
+            esac ;;
         --quiet|-q) QUIET=true; shift ;;
         *) shift ;;
     esac
 done
+case "$MIN_AGENTS" in ''|*[!0-9]*) MIN_AGENTS=1 ;; esac
 
 # --- Helpers ---
 RED='\033[0;31m'; YELLOW='\033[0;33m'; GREEN='\033[0;32m'; NC='\033[0m'
@@ -44,14 +51,19 @@ if [ "$(uname)" = "Darwin" ]; then
     AVAIL_MB=$(( (FREE_P + INACT_P + PURG_P + SPEC_P) * PAGE_SIZE / 1024 / 1024 ))
     TOTAL_MB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 ))
     LOAD_AVG=$(uptime 2>/dev/null | awk -F'load averages:' '{print $2}' | awk '{gsub(/,/,""); print $1}')
-    SWAP_USED=$(sysctl -n vm.swapusage 2>/dev/null | awk '{gsub(/[^0-9.]/,"",$4); print $4+0}')
+    # vm.swapusage = "total = 2048.00M  used = 512.00M  free = ..." -> used is $6
+    # (was $4 = the word "used" -> always 0 -> the swap block NEVER fired)
+    SWAP_USED=$(sysctl -n vm.swapusage 2>/dev/null | awk '{gsub(/[^0-9.]/,"",$6); printf "%d", $6+0}')
     MEM_PRESSURE=$(memory_pressure 2>/dev/null | awk '/free percentage/ {gsub(/%/,"",$NF); print $NF+0}' || echo 50)
 else
     # Linux: /proc/meminfo for memory, /proc/loadavg for CPU, /proc/swaps for swap
     AVAIL_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
     TOTAL_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)
     LOAD_AVG=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)
-    SWAP_USED=$(awk 'NR>1 {total+=$3-$4} END {print int(total/1024)}' /proc/swaps 2>/dev/null || echo 0)
+    # /proc/swaps: Filename Type Size Used Priority -> sum USED ($4). The old
+    # $3-$4 summed FREE swap, permanently blocking spawns on any box with a
+    # normal, mostly-empty swap partition.
+    SWAP_USED=$(awk 'NR>1 {total+=$4} END {print int(total/1024)}' /proc/swaps 2>/dev/null || echo 0)
     # Approximate memory pressure as available/total percentage
     if [ "$TOTAL_MB" -gt 0 ]; then
         MEM_PRESSURE=$(( AVAIL_MB * 100 / TOTAL_MB ))
@@ -60,7 +72,21 @@ else
     fi
 fi
 
-AVAIL_GB=$(echo "scale=1; $AVAIL_MB / 1024" | bc 2>/dev/null || awk "BEGIN {printf \"%.1f\", $AVAIL_MB / 1024}")
+# Empty-field hardening: `cmd | awk ... || echo N` fallbacks never fire when the
+# pipeline's awk exits 0 with NO output (e.g. memory_pressure output format drift)
+# — that emitted INVALID JSON ("memory_pressure_pct":,). Default every numeric
+# field explicitly before use.
+case "$AVAIL_MB"      in ''|*[!0-9]*) AVAIL_MB=0 ;; esac
+case "$TOTAL_MB"      in ''|*[!0-9]*) TOTAL_MB=0 ;; esac
+case "$SWAP_USED"     in '') SWAP_USED=0 ;; esac
+case "$MEM_PRESSURE"  in ''|*[!0-9]*) MEM_PRESSURE=50 ;; esac
+[ -z "$LOAD_AVG" ] && LOAD_AVG=0
+
+# awk, not bc: bc prints ".5" (no leading zero) for sub-1GB values, which is
+# INVALID JSON in the unquoted "available_gb" field -> every consumer's parse
+# blew up -> resource-guard failed OPEN at exactly the low-RAM moment it exists for
+AVAIL_GB=$(awk "BEGIN {printf \"%.1f\", $AVAIL_MB / 1024}")
+[ -z "$AVAIL_GB" ] && AVAIL_GB=0
 
 # --- Active claude CLI processes (INFORMATIONAL ONLY in v4.0) ---
 # NOTE: with teammateMode:in-process, spawned agents run inside the host process
@@ -74,7 +100,7 @@ CLAUDE_PROCS=$(pgrep -f '[c]laude' 2>/dev/null | wc -l | tr -d ' ')
 SAFETY_MARGIN_MB=$(( TOTAL_MB * 15 / 100 ))
 [ "$SAFETY_MARGIN_MB" -lt 4096 ] && SAFETY_MARGIN_MB=4096
 REQUIRED_MB=$(( MIN_AGENTS * PER_AGENT_MB + SAFETY_MARGIN_MB ))
-REQUIRED_GB=$(echo "scale=1; $REQUIRED_MB / 1024" | bc 2>/dev/null || awk "BEGIN {printf \"%.1f\", $REQUIRED_MB / 1024}")
+REQUIRED_GB=$(awk "BEGIN {printf \"%.1f\", $REQUIRED_MB / 1024}")
 MAX_NEW=$(( (AVAIL_MB - SAFETY_MARGIN_MB) / PER_AGENT_MB ))
 [ "$MAX_NEW" -lt 0 ] && MAX_NEW=0
 [ "$MAX_NEW" -gt "$MAX_AGENT_CAP" ] && MAX_NEW=$MAX_AGENT_CAP
@@ -92,8 +118,13 @@ EXIT_CODE=0
 REASON="OK"
 
 # --- Hard blocks ---
-if [[ "${SWAP_USED:-0}" =~ ^[0-9]+$ ]] && [ "${SWAP_USED:-0}" -gt 100 ]; then
-    err "BLOCKED: System is swapping (${SWAP_USED}MB). Spawning will cause degradation."
+# Threshold raised 100MB -> 4GB (RESOURCE_MAX_SWAP_MB): macOS parks pages in
+# swap benignly during long uptimes; only serious swap residency indicates the
+# thrash risk this guard exists for. (float values also failed the old ^[0-9]+$
+# regex, silently skipping the check)
+MAX_SWAP_MB="${RESOURCE_MAX_SWAP_MB:-4096}"
+if [[ "${SWAP_USED:-0}" =~ ^[0-9]+$ ]] && [ "${SWAP_USED:-0}" -gt "$MAX_SWAP_MB" ]; then
+    err "BLOCKED: System is swapping heavily (${SWAP_USED}MB > ${MAX_SWAP_MB}MB). Spawning will cause degradation."
     REASON="swapping"; EXIT_CODE=1
 fi
 
@@ -107,10 +138,10 @@ if [ "$AVAIL_MB" -lt "$REQUIRED_MB" ]; then
     REASON="insufficient_for_count:${MIN_AGENTS}"; EXIT_CODE=1
 fi
 
-if [ "$CLAUDE_PROCS" -ge "$MAX_AGENT_CAP" ]; then
-    err "BLOCKED: ${CLAUDE_PROCS} agents already running (rate-limit cap: ${MAX_AGENT_CAP})."
-    REASON="rate_limit_cap"; EXIT_CODE=1
-fi
+# CLAUDE_PROCS is INFORMATIONAL ONLY (see note above): with in-process teammates
+# it counts unrelated Claude.app/CLI/MCP processes (11 on an idle machine), so a
+# hard block here starved spawns with 50+GB free. RAM and pressure are the real
+# guards; the count stays in the JSON for observability.
 
 if [ "${MEM_PRESSURE:-50}" -lt 5 ]; then
     err "BLOCKED: Memory pressure critical (${MEM_PRESSURE}% free)."

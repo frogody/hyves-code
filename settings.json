@@ -49,6 +49,18 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-fx.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -75,6 +87,44 @@
             "type": "command",
             "command": "~/.claude/hooks/superboost-parallelism.sh --turn",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-fx.sh emit turn",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-fx.sh emit join",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-fx.sh notify",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/superboost-fx.sh emit compact",
+            "timeout": 5
           }
         ]
       }
@@ -104,7 +154,8 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/hooks/superboost-statusline.sh"
+    "command": "~/.claude/hooks/superboost-statusline.sh",
+    "refreshInterval": 1
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,

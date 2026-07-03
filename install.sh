@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh — HYVES CODE V5 (v5.2.1) installer / verifier
+# install.sh — HYVES CODE V5 installer / verifier (version read from superboost-version.json)
 # Part of HYVES CODE by ISYNCSO (https://isyncso.com)
 #
 # Two modes, decided automatically:
@@ -22,7 +22,9 @@ HOOKS_DIR="$CLAUDE_DIR/hooks"
 say()  { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-say "HYVES CODE V5 (v5.2.1) — install/verify"
+# Version comes from the manifest so the installer can never drift from the release
+HC_VER="$(python3 -c "import json;print(json.load(open('$SRC_DIR/superboost-version.json'))['version'])" 2>/dev/null)"
+say "HYVES CODE V5 (v${HC_VER:-?}) — install/verify"
 say ""
 
 # ─── 1. Prerequisites ────────────────────────────────────────
@@ -74,7 +76,7 @@ fi
 BANNER_LINE="$("$HOOKS_DIR/superboost-banner.sh" 2>/dev/null | head -1)"
 case "$BANNER_LINE" in
   *"boot OK"*)
-    STATUS="${BANNER_LINE#*— }"; STATUS="${STATUS%%. Do NOT*}"
+    STATUS="${BANNER_LINE#*— }"; STATUS="${STATUS%%. Open your*}"
     say "  ok: self-test clean — ${STATUS}" ;;
   *)           say "  warn: self-test reported issues — run $HOOKS_DIR/superboost-banner.sh for details" ;;
 esac

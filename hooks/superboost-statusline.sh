@@ -1,21 +1,35 @@
 #!/bin/bash
-# superboost-statusline.sh — full-width colorized HUD for Claude Code Superboost (v5.1)
-# Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)
+# superboost-statusline.sh — full-width colorized HUD for HYVES CODE (v5.3)
+# Part of HYVES CODE by ISYNCSO (https://isyncso.com)
 #
-# v5.1 — "use the whole bar": the statusline now claims the entire terminal width
-# (COLUMNS is provided in the hook environment) and paints with truecolor
-# BACKGROUNDS, not just letter colors:
-#   - Chip layout: brand / model+effort chips with solid bg, stats on a dark base
-#     strip that spans the full width.
-#   - RAM bar: wide, bg-colored cell gradient (green->amber->red positionally),
-#     filled cells bright / unfilled a dark ghost of the same gradient.
-#   - FX washes: when superboost-fx.sh records an event, the flexible canvas
-#     region floods with a QUANTIZED BLOCKY background wash in the effect color —
-#     chunky 3-cell "pixels" whose brightness falls off with distance from the
-#     label, dithered per-second so it shimmers, pulsed by the 4-frame table,
-#     and decayed to nothing over the TTL. The base strip also tints faintly
-#     toward the effect color so the whole bar "breathes" with the event.
-#   - New data chips from the session JSON: ctx used%, effort level, 5h rate use.
+# v5.3 — ONE VISUAL GRAMMAR (documented in CLAUDE.md §11; the code must match):
+#
+#   ROLE ORDER (left -> right):
+#     IDENTITY   brand chip, model+effort chip (solid bg)
+#     WORKSPACE  dir basename (dim), diff churn +N/-N
+#     MACHINE    RAM label + gradient bar + stats, fan-out budget (fanout~N)
+#     SESSION    ctx used% (solid alert >=85%), 200K+ flag, 5h rate, cost
+#     ACTIVITY   FX wash canvas + effect label pinned at the right edge
+#
+#   HUE FAMILIES (one family = one meaning, everywhere):
+#     violet+gold IDENTITY (brand, Fable=gold / Opus=violet) — never status
+#     green       HEALTHY/CONFIRMED (RAM+ctx ok, churn +, commit, pass)
+#     amber       CAUTION/CHANGE   (RAM+ctx mid, tight budget, edit, compact)
+#     red         CRITICAL/FAILED  (RAM+ctx critical, 200K+, solo, churn -,
+#                                   blocked, fail, error)
+#     cyan        PARALLELISM      (fanout~N, fanout, join)
+#     blue        INFORMATION WORK (preflight, search, think, turn/WORKING)
+#     indigo      SHIPPING         (deploy)
+#     pink        NEEDS YOU        (attn — the only pink anywhere on the bar)
+#     slate       NEUTRAL/IDLE     (dir, 5h, cost, done, idle heartbeat)
+#
+#   EMPHASIS TIERS (exactly three): SOLID chip (bg+bold: identity + urgent
+#   alerts + FX label) > TINTED readout (colored fg on the dark base strip) >
+#   DIM context (dir). Every chip pads one space each side.
+#
+#   LIFECYCLE: the ACTIVITY canvas always says what the process is doing —
+#   an event wash while fresh, a faint drifting slate heartbeat while a turn
+#   works past its last event (never after done/attn), black when idle.
 #
 # WIDTH SAFETY (v4's hard-won lesson, still law): every VISIBLE glyph is plain
 # ASCII (letters digits % ~ $ # - [ ] | space). All color — fg AND bg — is ANSI
@@ -26,6 +40,12 @@
 # Reads session JSON on stdin; outputs a single status-bar line.
 
 INPUT=$(cat)
+
+# Deterministic text handling everywhere (v5.3): comma-decimal locales make
+# bash printf reject "4.56" ("invalid number") and can slip commas into awk
+# output; C locale also makes ${#var} count BYTES, which equals display width
+# only because every visible string below is sanitized to printable ASCII.
+export LC_ALL=C
 
 PLAIN="${SUPERBOOST_STATUSLINE_PLAIN:-0}"
 esc=$'\033'
@@ -41,18 +61,19 @@ fi
 # v5.2.2: percentages rounded to 1 decimal in jq — the harness can emit float
 # noise like 7.000000000000001, which rendered verbatim in the 5h chip; a
 # missing/non-numeric value still yields the "-" sentinel via try/catch
-IFS=$'\t' read -r MODEL COST CTX RLIM EFFORT ADDED REMOVED CWD BIG <<EOF
+IFS=$'\t' read -r MODEL COST CTX RLIM EFFORT ADDED REMOVED CWD BIG SID <<EOF
 $(echo "$INPUT" | jq -r '[
-  (.model.display_name // "?"),
+  ((.model.display_name // "?") | tostring | if . == "" then "?" else . end),
   (.cost.total_cost_usd // 0),
   (try (((.context_window.used_percentage * 10) | round) / 10) catch "-"),
   (try (((.rate_limits.five_hour.used_percentage * 10) | round) / 10) catch "-"),
-  (.effort.level // "-"),
+  ((.effort.level // "-") | tostring | if . == "" then "-" else . end),
   (.cost.total_lines_added // 0),
   (.cost.total_lines_removed // 0),
   ((((.workspace.current_dir // .cwd // "") | tostring | split("/") | last) // "")
     | if . == "" then "-" else . end),
-  (if .exceeds_200k_tokens == true then "1" else "0" end)
+  (if .exceeds_200k_tokens == true then "1" else "0" end),
+  ((.session_id // "-") | tostring | if . == "" then "-" else . end)
 ] | @tsv' 2>/dev/null)
 EOF
 # tab-IFS read collapses EMPTY tsv fields (they'd shift right-hand fields left),
@@ -65,11 +86,21 @@ EOF
 [ "$CWD" = "-" ] && CWD=""
 # v5.2 hygiene: dir basename must obey the ASCII width law (strip + truncate);
 # churn fields must be integers; ctx% may arrive fractional (B3) -> integer part
-CWD=$(printf '%s' "$CWD" | LC_ALL=C tr -cd '\40-\176' | cut -c1-16)
+# v5.3: MODEL/EFFORT get the same treatment — an emoji or CJK glyph in a model
+# display_name made the visible line 1 cell wider than the width law allows
+# (verified: "🚀 Fable 5" rendered 116 cells at COLUMNS=120)
+CWD=$(printf '%s' "$CWD" | tr -cd '\40-\176' | cut -c1-16)
+MODEL=$(printf '%s' "$MODEL" | tr -cd '\40-\176' | cut -c1-24)
+EFFORT=$(printf '%s' "$EFFORT" | tr -cd '\40-\176' | cut -c1-8)
+[ -z "$MODEL" ] && MODEL="?"
+[ -z "$EFFORT" ] && EFFORT="-"
 case "$ADDED" in ''|*[!0-9]*) ADDED=0 ;; esac
 case "$REMOVED" in ''|*[!0-9]*) REMOVED=0 ;; esac
 [ "$BIG" = "1" ] || BIG=0
 CTX_INT="${CTX%%.*}"; case "$CTX_INT" in ''|*[!0-9]*) CTX_INT="" ;; esac
+# v5.3: session id (first 8 chars) keys this session's FX state file
+[ "$SID" = "-" ] && SID=""
+SID8=$(printf '%s' "$SID" | LC_ALL=C tr -cd 'A-Za-z0-9-' | cut -c1-8)
 
 # --- Live RAM stats ---
 if [ "$(uname)" = "Darwin" ]; then
@@ -103,7 +134,22 @@ elif [ "$MAX_AGENTS" -ge 1 ]; then CAP="tight~${MAX_AGENTS}";  CAP_R=245; CAP_G=
 else                               CAP="solo";                 CAP_R=239; CAP_G=68;  CAP_B=68; fi
 
 # --- FX state (effect color + freshness) ---
-FX_STATE="${SUPERBOOST_FX_DIR:-$HOME/.claude/fx}/state"
+# v5.3 session scoping: hooks write to state.<sid8>; manual emits (no session
+# context) write the global state. Render whichever record is NEWEST, so this
+# session's own lifecycle wins but demo/manual emits still show everywhere.
+FX_DIR_P="${SUPERBOOST_FX_DIR:-$HOME/.claude/fx}"
+FX_STATE="$FX_DIR_P/state"
+if [ -n "$SID8" ] && [ -f "$FX_DIR_P/state.$SID8" ]; then
+  if [ -f "$FX_STATE" ]; then
+    _tg=$(IFS='|' read -r _ _ _ _ _ tg _ < "$FX_STATE" 2>/dev/null; printf '%s' "${tg%%.*}")
+    _ts=$(IFS='|' read -r _ _ _ _ _ ts _ < "$FX_DIR_P/state.$SID8" 2>/dev/null; printf '%s' "${ts%%.*}")
+    case "$_tg" in ''|*[!0-9]*) _tg=0 ;; esac
+    case "$_ts" in ''|*[!0-9]*) _ts=0 ;; esac
+    [ "$_ts" -ge "$_tg" ] && FX_STATE="$FX_DIR_P/state.$SID8"
+  else
+    FX_STATE="$FX_DIR_P/state.$SID8"
+  fi
+fi
 NOW=$(date +%s 2>/dev/null); [ -z "$NOW" ] && NOW=0
 # v5.2.1: FLOAT clock for animation phases. The statusline re-renders ~every
 # 300ms, but keying motion off integer seconds froze it to 1 fps and made the
@@ -118,10 +164,28 @@ if [ -f "$FX_STATE" ]; then
   # bash's integer arithmetic gates on the whole-second part, awk gets the float.
   _t_i="${_t%%.*}"
   case "$_t_i" in ''|*[!0-9]*) _t_i="" ;; esac
+  # a malformed/extra-field state line lands junk in FX_TTL (the last read var
+  # swallows the rest of the line), and non-numeric R/G/B blow up every later
+  # $(( )) -> integer tests spewed stderr ~3x/sec; treat ANY bad field as no FX
+  case "$FX_TTL" in ''|*[!0-9]*) FX_TTL=""; _t_i="" ;; esac
+  case "$FX_R" in ''|*[!0-9]*) _t_i="" ;; esac
+  case "$FX_G" in ''|*[!0-9]*) _t_i="" ;; esac
+  case "$FX_B" in ''|*[!0-9]*) _t_i="" ;; esac
   if [ -n "$_t_i" ] && [ -n "$FX_TTL" ]; then
     FX_AGE=$(( NOW - _t_i ))
     [ "$FX_AGE" -ge 0 ] && [ "$FX_AGE" -lt "$FX_TTL" ] && FX_ON=1
   fi
+fi
+# v5.3 long-turn heartbeat: an expired effect whose last event was WORK (not
+# done/attn) means the turn is still running with nothing new to report — show
+# a faint drifting slate shimmer so an active turn is visibly alive instead of
+# a dead-black canvas. Capped at 15 min so a crashed session can't pulse forever.
+HEART=0
+if [ "$FX_ON" = "0" ] && [ -n "$_t_i" ] && [ -n "$FX_TTL" ]; then
+  case "$FX_EVENT" in
+    done|attn) : ;;
+    *) [ "$FX_AGE" -ge "$FX_TTL" ] && [ "$FX_AGE" -lt 900 ] && HEART=1 ;;
+  esac
 fi
 # v5.2: smoothstep ease-out decay + gentle sine pulse (~0.4 Hz, <10% luminance
 # swing — WCAG 2.3.1-safe; replaces linear decay + the 4-frame table). Scales 0-100.
@@ -149,7 +213,11 @@ fi
 BG0="$(b "$B0_R" "$B0_G" "$B0_B")"
 
 # --- Width ---
-W=$(( ${COLUMNS:-$(tput cols 2>/dev/null || echo 120)} - 5 ))
+# COLUMNS must be validated BEFORE the arithmetic: a value like "80x" makes
+# $(( )) itself error, leaving W empty so even the <40 clamp then errors
+_COLS="${COLUMNS:-$(tput cols 2>/dev/null)}"
+case "$_COLS" in ''|*[!0-9]*) _COLS=120 ;; esac
+W=$(( _COLS - 5 ))
 [ "$W" -lt 40 ] && W=40
 
 # ============================ PLAIN / NARROW FALLBACK =========================
@@ -263,6 +331,20 @@ if [ "$FX_ON" = "1" ] && [ "$CANVAS" -gt 0 ]; then
     }
     printf "%s", out
   }')
+elif [ "$HEART" = "1" ] && [ "$CANVAS" -gt 0 ]; then
+  # heartbeat: sparse slate cells drifting slowly right (~0.9 rad/s phase), a
+  # pure function of wall-clock. Quiet by design — "alive", not "an event".
+  WASH=$(awk -v n="$CANVAS" -v nowf="$NOW_F" \
+             -v br="$B0_R" -v bg="$B0_G" -v bb="$B0_B" 'BEGIN{
+    e=sprintf("%c",27); out=""
+    for(i=0;i<n;i++){
+      s=sin(i*0.35 - nowf*0.9)
+      al=(s>0.60)?14:0
+      r=br+int((100-br)*al/100); g=bg+int((116-bg)*al/100); bl=bb+int((139-bb)*al/100)
+      out=out e "[48;2;" r ";" g ";" bl "m "
+    }
+    printf "%s", out
+  }')
 else
   WASH="$(printf "${BG0}%*s" "$CANVAS" "")"
 fi
@@ -283,10 +365,15 @@ CTXP=""
 if [ -n "$CTX_TXT" ]; then
   # B3 fix: compare the integer part — a fractional used_percentage (e.g. 42.5)
   # made both integer tests error out and fall through to red
-  if   [ "${CTX_INT:-0}" -lt 60 ]; then CX_R=34;  CX_G=197; CX_B=94
-  elif [ "${CTX_INT:-0}" -lt 85 ]; then CX_R=245; CX_G=158; CX_B=11
-  else                                  CX_R=239; CX_G=68;  CX_B=68; fi
-  CTXP="${BG0}$(c "$CX_R" "$CX_G" "$CX_B")${CTX_TXT}${RST}"
+  # v5.3: >=85% escalates from a tinted readout to a SOLID alert chip (same
+  # emphasis tier as 200K+) — context pressure is the alert users miss most.
+  if [ "${CTX_INT:-0}" -ge 85 ]; then
+    CTXP="$(b 127 29 29)$(c 254 202 202)${BOLD}${CTX_TXT}${RST}"
+  else
+    if [ "${CTX_INT:-0}" -lt 60 ]; then CX_R=34;  CX_G=197; CX_B=94
+    else                                CX_R=245; CX_G=158; CX_B=11; fi
+    CTXP="${BG0}$(c "$CX_R" "$CX_G" "$CX_B")${CTX_TXT}${RST}"
+  fi
 fi
 CAPP="${BG0}$(c "$CAP_R" "$CAP_G" "$CAP_B")${CAP_TXT}${RST}"
 RLP=""
@@ -306,6 +393,10 @@ CHURNP=""
 BIGP=""
 [ -n "$BIG_TXT" ] && BIGP="$(b 127 29 29)$(c 254 202 202)${BOLD}${BIG_TXT}${RST}"
 
+# v5.3 role ordering (the grammar, left -> right): IDENTITY (brand, model) ->
+# WORKSPACE (dir, churn) -> MACHINE (RAM bar+stats, fan-out budget) ->
+# SESSION BUDGET (ctx, 200K+, 5h rate, cost) -> ACTIVITY (wash canvas + FX
+# label pinned to the right edge, where the eye checks "what is it doing now").
 printf '%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n' \
-  "$BRAND" "$MODEL_CHIP" "$DIRP" "$RAML" "$RAMBAR" "$RST" "$STATS" "$CTXP" "$BIGP" \
-  "$CAPP" "$WASH" "$FXLP" "$RLP" "$CHURNP" "$COSTP"
+  "$BRAND" "$MODEL_CHIP" "$DIRP" "$CHURNP" "$RAML" "$RAMBAR" "$RST" "$STATS" \
+  "$CAPP" "$CTXP" "$BIGP" "$RLP" "$COSTP" "$WASH" "$FXLP"

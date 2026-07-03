@@ -2,7 +2,7 @@
 
 *Holistic Yield & Validation Engines* — formerly **Superboost**. The internal hook scripts, env vars, and sentinels keep the historical `superboost-` prefix, so upgrading is a `git pull`, not a migration.
 
-![version](https://img.shields.io/badge/HYVES%20CODE-V5.2.2-a855f7)
+![version](https://img.shields.io/badge/HYVES%20CODE-V5.3.0-a855f7)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.170-22d3ee)
 ![tuned for](https://img.shields.io/badge/tuned%20for-Claude%20Fable%205-facc15)
 ![safety](https://img.shields.io/badge/auto--mode-guarded-22c55e)
@@ -90,6 +90,24 @@ Requires **Claude Code ≥ 2.1.170** (for Fable 5) — run `claude update` if ne
 ~/.claude/hooks/bless-hooks.sh                      # re-seal checksums after editing a hook
 ~/.claude/hooks/hyves-boot.sh                       # replay the HYVES CODE boot cinema
 ```
+
+---
+
+## What's new in v5.3.0 "Instrument" — one grammar, whole-lifecycle FX, hardened probes
+
+**The bar is now a designed instrument, not a row of accumulated widgets.** v5.3 commits to one visual grammar and enforces it in code and tests (CLAUDE.md §11 is the law):
+
+- **Hue families mean exactly one thing** — violet/gold=identity, green=confirmed, amber=caution/change, red=failed, cyan=parallelism, blue=information work, indigo=shipping, pink=needs-you, slate=neutral. Two effects were recolored to obey it: `search` left violet (identity's family) for sky-blue, `think` left teal (too close to parallelism cyan) for deep blue.
+- **Role ordering** — identity → workspace (dir, churn) → machine (RAM, `fanout~N`) → session budget (ctx, `200K+`, 5h, cost) → activity, with the FX wash + label pinned at the right edge where the eye checks "what is it doing now." Three emphasis tiers only: solid chip > tinted readout > dim context. ctx ≥ 85% escalates to a solid red alert chip.
+
+**FX now cover the whole session lifecycle, not just five tool events:**
+
+- `turn` (WORKING, blue, 3s) at prompt submit · `join` (cyan) when a sub-agent finishes · **pink `attn` (NEEDS YOU, 45s)** when Claude is blocked on a permission prompt or your input — the highest-signal effect on the bar · amber `compact` before context compaction · hard-red `error` when a tool itself breaks (distinct from a red FAIL verdict; benign Bash failures like `grep` exit 1 stay silent, riding the `PostToolUseFailure` event that current Claude Code uses for failures).
+- **Long-turn heartbeat** — when an effect expires mid-turn, a faint drifting slate shimmer keeps the canvas visibly alive; it never fires after `done`/`attn`, and caps at 15 minutes.
+- **Session-scoped, atomic FX state** — hooks key state by `session_id` (`state.<sid8>`), so concurrent sessions no longer clobber each other's washes and SessionEnd clears only its own file; every write is tmp+rename atomic (the old truncating write tore ~15% of concurrent statusline reads).
+- `statusLine.refreshInterval: 1` keeps motion and the attn wash alive while the session idles — event-driven renders used to stop exactly when Claude was waiting on you.
+
+**Review-and-fix pass (adversarially verified, 17 confirmed defects):** the macOS swap probe parsed the *word* "used" (check never fired) while the Linux path summed *free* swap (would have permanently blocked spawns); `bc` emitted `.5` — invalid JSON that made the resource guard **fail open at exactly the low-RAM moment it guards**; a dangling `--min-agents` looped forever; a stale process-count check hard-blocked spawns on busy-but-healthy machines; non-ASCII model names and non-integer `COLUMNS` broke the width law; comma-decimal locales broke `printf`; malformed FX state leaked stderr ~3×/sec; `install.sh` had version drift; plus flaky/hair-trigger test windows. All fixed and pinned by 15 new regression checks (verify.sh: 55 checks; deepcap: heartbeat frame-capture suite).
 
 ---
 
