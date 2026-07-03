@@ -9,20 +9,20 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'RESULT=$(~/.claude/hooks/resource-check.sh --quiet 2>/dev/null); CAN=$(echo \"$RESULT\" | python3 -c \"import sys,json; print(json.load(sys.stdin)[\\\"can_spawn\\\"])\"); if [ \"$CAN\" = \"False\" ]; then REASON=$(echo \"$RESULT\" | python3 -c \"import sys,json; print(json.load(sys.stdin)[\\\"reason\\\"])\"); echo \"BLOCKED: Cannot spawn agent — $REASON\" >&2; exit 2; fi; exit 0'"
-          }
-        ]
-      },
-      {
-        "matcher": "TeamCreate",
+        "matcher": "Agent|TeamCreate|Task|Workflow",
         "hooks": [
           {
             "type": "command",
             "command": "~/.claude/hooks/resource-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/safety-guard.sh"
           }
         ]
       }
@@ -61,7 +61,7 @@
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
@@ -92,7 +92,7 @@
         "source": "git",
         "url": "https://github.com/wshobson/agents.git"
       },
-      "autoUpdate": true
+      "autoUpdate": false
     },
     "claude-code-warp": {
       "source": {

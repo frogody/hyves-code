@@ -1,29 +1,40 @@
 {
-  "version": "3.0.0",
+  "version": "4.0.0",
   "installed_at": "2026-03-08T17:00:00Z",
-  "upgraded_at": "2026-04-17T00:00:00Z",
+  "upgraded_at": "2026-07-03T00:00:00Z",
   "source_path": "/Users/godyduinsbergen/.claude/hooks",
   "project_path": "/Users/godyduinsbergen",
-  "model_baseline": {
-    "default": "claude-opus-4-7",
-    "fast_mode": "claude-opus-4-6",
-    "worker_tier": "claude-sonnet-4-6",
-    "explorer_tier": "claude-haiku-4-5-20251001"
+  "model_tiers": {
+    "_note": "Alias-only. The Agent tool's model override accepts opus|sonnet|haiku, NOT pinned minor versions. Do not hardcode 4.x numbers anywhere; they drift and cannot be passed.",
+    "orchestrator": "opus",
+    "synthesizer": "opus",
+    "judge": "opus",
+    "worker": "sonnet",
+    "explorer": "haiku"
   },
-  "v3_changes": [
-    "Opus 4.7 awareness in Agent Dispatch Protocol",
-    "Model tiering guidance (Opus for orchestration, Sonnet for workers, Haiku for read-only explorers)",
-    "Pre-Flight Q2 inverted for 1M context + prompt caching era",
-    "Fast mode (/fast) incompatibility warning",
-    "Version aligned across banner, CLAUDE.md, and version.json"
+  "v4_changes": [
+    "Rebranded v3.x -> v4.0; aligned banner, CLAUDE.md, statusline, version.json",
+    "SECURITY: new safety-guard.sh PreToolUse hook (Bash/Write/Edit) hard-blocks catastrophic/exfil actions + enforces the calculator lock \u2014 replaces prose-only 'Auto-Mode Safety Checklist'",
+    "FIX: resource-guard.sh now exits 2 to actually block (was exit 1, a no-op) and captures the resource-check exit code correctly (was masked by '|| echo')",
+    "FIX: statusline is pure ASCII \u2014 removed ANSI escapes + emoji that corrupted TUI width calc and leaked SGR mouse reports into the input line",
+    "FIX: removed dead Fast-Mode logic (premise 'fast = Opus 4.6, no thinking' is false; regex false-positived Sonnet 4.6)",
+    "FIX: gitnexus-refresh.sh guards on cwd and no longer auto-runs 'npx analyze' at session start",
+    "FIX: ram-monitor.sh rotates its log (was 39MB/210k lines) and samples writes",
+    "FIX: resource-check.sh drops the meaningless process-count block (in-process teammates aren't separate processes)",
+    "Model tiering is alias-only (opus/sonnet/haiku); removed stale 4.7/4.6 pins",
+    "Integrity: safety-guard.sh + gitnexus-refresh.sh are now checksum-tracked (were not)",
+    "SLIM: cut mandatory progress-bar injection, printed Pre-Flight block, always-on banner render, and OP-Mode/wave/rate-zone machinery \u2014 defer orchestration to the native Workflow tool",
+    "Config is now a git repo (github.com/frogody/superboost-v4) so edits are recoverable"
   ],
+  "blessed_at": "2026-07-03T00:46:21Z",
   "scripts": {
-    "resource-check.sh": "81e96a2f28300cd6ff9e517718c93a6677cad5e819a2b0b91c94a66f48018438",
-    "ram-monitor.sh": "32dc5cec63364ace72bf408ad3c9d1ff359571f9d2794a15a5392abf884c7d4e",
-    "resource-guard.sh": "b06799c4530799320e17bef8c7921c78d86bd8d06f234f45094fdb0688158d42",
-    "superboost-banner.sh": "57dfa7ab2fd95a207fc36b3afa5dbc40b9f6c749c565a920bae399132904bc3a",
-    "superboost-statusline.sh": "543106592a6066f0610861a5da1bdbcf704c980e81ae8c6f94562a340acde8cd",
-    "bless-hooks.sh": "4bea16d0f2defb8fdf0eb02271393e1cc7e014ad92d86b96d4c81c680feb0d7d"
-  },
-  "blessed_at": "2026-04-17T01:36:06Z"
+    "resource-check.sh": "df726c0ab78df996dd9b92f52824a8b46d1c73d2cf9c36981f372ff54e092393",
+    "ram-monitor.sh": "cd51932acbcd1593bc3023f4562bb260099ff7dffc56a42fd3b97281d95327c0",
+    "resource-guard.sh": "ea2859403862a7eb44a85f22407125aa84266280a067fd9e380abc33e1770735",
+    "superboost-banner.sh": "8134ad660d660381f29de40002cb53d640a2ddfef495016a70d679637e5699dc",
+    "superboost-statusline.sh": "1ca026959e9a404cf53920d53bfa17e183a7072764734d0b0a039e580cc6a549",
+    "bless-hooks.sh": "ad8cb5a5d620341cc99cb3344844342f44ee5094d7ac68aec25524cf8f0e9a35",
+    "safety-guard.sh": "3f4d7fbe202c5521bf01bf2b76b0320f069f488a5785c624fabf2607b66fe874",
+    "gitnexus-refresh.sh": "11829ea1832dfc0d58f0892a15cefba5a835dbb528e65c9a709fcd35cdb570bc"
+  }
 }
