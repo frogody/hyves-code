@@ -1,5 +1,5 @@
 #!/bin/bash
-# superboost-banner.sh — SessionStart hook for Claude Code Superboost V3
+# superboost-banner.sh — SessionStart hook for Claude Code Superboost V4
 # Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)
 #
 # On every session start:
@@ -24,7 +24,7 @@ check_fail() { FAIL=$((FAIL + 1)); ISSUES="${ISSUES}FAIL: $1\n"; }
 check_warn() { WARN=$((WARN + 1)); ISSUES="${ISSUES}WARN: $1\n"; }
 
 # 1. Hook scripts exist and are executable
-for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh safety-guard.sh gitnexus-refresh.sh bless-hooks.sh; do
+for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh safety-guard.sh gitnexus-refresh.sh bless-hooks.sh superboost-secrets.sh; do
   if [ -x "$HOOKS_DIR/$script" ]; then
     check_pass
   else
@@ -40,13 +40,14 @@ if [ -f "$SETTINGS" ]; then
   grep -q 'superboost-banner' "$SETTINGS" 2>/dev/null && check_pass || check_fail "superboost-banner not bound in settings.json"
   grep -q 'resource-check\|resource-guard' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PreToolUse resource guard not configured"
   grep -q 'safety-guard' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PreToolUse safety-guard not configured"
+  grep -q 'superboost-secrets' "$SETTINGS" 2>/dev/null && check_pass || check_fail "SessionStart superboost-secrets (first-boot creds) not configured"
   grep -q 'ram-monitor' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PostToolUse ram-monitor not configured"
   grep -q 'superboost-statusline' "$SETTINGS" 2>/dev/null && check_pass || check_fail "statusLine not configured"
 else
   check_fail "settings.json not found at $SETTINGS"
 fi
 
-# 3. CLAUDE.md exists and contains Superboost v3 content
+# 3. CLAUDE.md exists and contains Superboost v4 content
 if [ -f "$CLAUDE_MD" ]; then
   check_pass
   grep -q "Superboost v4" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md doesn't reference Superboost v4"

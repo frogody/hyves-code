@@ -1,6 +1,6 @@
 #!/bin/bash
 # safety-guard.sh — PreToolUse deny hook for catastrophic / exfil actions + locked files
-# Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)  — new in v3.1
+# Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)  — new in v4.0
 #
 # Purpose: replace the prose "Auto-Mode Safety Checklist" (which nothing enforced)
 # with a REAL guardrail. Because defaultMode=auto + skipAutoPermissionPrompt=true

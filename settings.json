@@ -48,6 +48,10 @@
           },
           {
             "type": "command",
+            "command": "~/.claude/hooks/superboost-secrets.sh check"
+          },
+          {
+            "type": "command",
             "command": "~/.claude/hooks/gitnexus-refresh.sh",
             "timeout": 60
           }

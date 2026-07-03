@@ -62,7 +62,7 @@ fi
 
 AVAIL_GB=$(echo "scale=1; $AVAIL_MB / 1024" | bc 2>/dev/null || awk "BEGIN {printf \"%.1f\", $AVAIL_MB / 1024}")
 
-# --- Active claude CLI processes (INFORMATIONAL ONLY in v3.1) ---
+# --- Active claude CLI processes (INFORMATIONAL ONLY in v4.0) ---
 # NOTE: with teammateMode:in-process, spawned agents run inside the host process
 # and do NOT appear as separate `claude` OS processes, so this count no longer
 # reflects agent concurrency. Kept for observability; it is no longer a hard block.

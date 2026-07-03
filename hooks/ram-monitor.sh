@@ -1,7 +1,7 @@
 #!/bin/bash
-# ram-monitor.sh — PostToolUse RAM monitor (Superboost v3.1)
+# ram-monitor.sh — PostToolUse RAM monitor (Superboost v4.0)
 # Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)
-# Fires after every tool call. v3.1 changes vs v3.0:
+# Fires after every tool call. v4.0 changes vs v3.0:
 #   - Log ROTATION: cap the file so it can't grow unbounded (v3.0 reached 39MB / 200k lines).
 #   - SAMPLED logging: only write a routine line every Nth call (or on threshold approach),
 #     cutting write-amplification ~90% while still catching pressure events every call.

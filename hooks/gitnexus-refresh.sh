@@ -1,10 +1,10 @@
 #!/bin/bash
-# gitnexus-refresh.sh — SessionStart hook: report GitNexus index freshness (Superboost v3.1)
-# v3.1 changes vs v3.0:
+# gitnexus-refresh.sh — SessionStart hook: report GitNexus index freshness (Superboost v4.0)
+# v4.0 changes vs v3.0:
 #   - CWD GUARD: only act when the session is actually inside the target repo. v3.0 ran
 #     on EVERY session in every directory, statting an unrelated path and emitting noise.
 #   - NO AUTO-EXEC: v3.0 ran `npx gitnexus analyze` (network + compute + supply-chain
-#     surface) automatically on a stale index. v3.1 only REPORTS staleness; you run the
+#     surface) automatically on a stale index. v4.0 only REPORTS staleness; you run the
 #     analyze yourself. A SessionStart hook must never silently fetch/run remote code.
 #   - REPO_DIR overridable via env.
 

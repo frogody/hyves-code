@@ -69,7 +69,18 @@ Still use judgment the hook can't encode:
 
 ---
 
-## 7. Integrity
+## 7. First-boot credentials
+
+User-specific credentials (API tokens/keys) are provisioned **once** and reused. On session start, `superboost-secrets.sh check` reports any *required* credential that isn't yet in the macOS keychain. If you see a **"SUPERBOOST FIRST-BOOT SETUP"** message listing missing credentials:
+
+1. Ask the user for each missing value (one prompt is fine).
+2. Store each — never write a secret into a file:
+   - `~/.claude/hooks/superboost-secrets.sh set <name> <value>` (or the user runs `set <name>` for a hidden prompt so the value never enters chat).
+3. Confirm with `~/.claude/hooks/superboost-secrets.sh list`.
+
+After that, sessions read the fixed values silently. To USE a stored credential in a command, retrieve it by name, e.g. `TOKEN=$(~/.claude/hooks/superboost-secrets.sh get supabase-mgmt-token)`. Slots are defined in `~/.claude/superboost-secrets.json` (git-ignored; names only, never values).
+
+## 8. Integrity
 
 Hook scripts are sha256-tracked in `superboost-version.json`. The boot check warns on drift. After intentionally editing a hook, re-seed with `~/.claude/hooks/bless-hooks.sh`. This is drift-detection, not tamper-proofing — treat it as "did I change a hook and forget," not a security boundary.
 

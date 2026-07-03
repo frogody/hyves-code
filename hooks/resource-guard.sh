@@ -1,5 +1,5 @@
 #!/bin/bash
-# resource-guard.sh — PreToolUse guard for agent/team/workflow spawns (Superboost v3.1)
+# resource-guard.sh — PreToolUse guard for agent/team/workflow spawns (Superboost v4.0)
 # Part of Claude Code Superboost by ISYNCSO (https://isyncso.com)
 #
 # This is a PERFORMANCE guard (prevents thrashing a low-memory machine), NOT a
