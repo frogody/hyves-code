@@ -62,8 +62,12 @@ fi
 
 AVAIL_GB=$(echo "scale=1; $AVAIL_MB / 1024" | bc 2>/dev/null || awk "BEGIN {printf \"%.1f\", $AVAIL_MB / 1024}")
 
-# --- Active claude CLI agents ---
-CLAUDE_PROCS=$(ps aux 2>/dev/null | grep -c "[[:space:]]claude[[:space:]]" || true)
+# --- Active claude CLI processes (INFORMATIONAL ONLY in v3.1) ---
+# NOTE: with teammateMode:in-process, spawned agents run inside the host process
+# and do NOT appear as separate `claude` OS processes, so this count no longer
+# reflects agent concurrency. Kept for observability; it is no longer a hard block.
+CLAUDE_PROCS=$(pgrep -f '[c]laude' 2>/dev/null | wc -l | tr -d ' ')
+[ -z "$CLAUDE_PROCS" ] && CLAUDE_PROCS=0
 
 # --- Compute safe spawn count ---
 # Tiered safety margin: max(4096MB, total_ram * 15%) — scales with machine size

@@ -8,7 +8,7 @@
 #   3. Outputs banner + health report for Claude to display
 # Save to: ~/.claude/hooks/superboost-banner.sh
 
-SUPERBOOST_VERSION="3.0"
+SUPERBOOST_VERSION="4.0"
 HOOKS_DIR="$HOME/.claude/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
@@ -24,7 +24,7 @@ check_fail() { FAIL=$((FAIL + 1)); ISSUES="${ISSUES}FAIL: $1\n"; }
 check_warn() { WARN=$((WARN + 1)); ISSUES="${ISSUES}WARN: $1\n"; }
 
 # 1. Hook scripts exist and are executable
-for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh; do
+for script in resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh safety-guard.sh gitnexus-refresh.sh bless-hooks.sh; do
   if [ -x "$HOOKS_DIR/$script" ]; then
     check_pass
   else
@@ -39,6 +39,7 @@ if [ -f "$SETTINGS" ]; then
   grep -q '"SessionStart"' "$SETTINGS" 2>/dev/null && check_pass || check_fail "SessionStart hook not configured in settings.json"
   grep -q 'superboost-banner' "$SETTINGS" 2>/dev/null && check_pass || check_fail "superboost-banner not bound in settings.json"
   grep -q 'resource-check\|resource-guard' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PreToolUse resource guard not configured"
+  grep -q 'safety-guard' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PreToolUse safety-guard not configured"
   grep -q 'ram-monitor' "$SETTINGS" 2>/dev/null && check_pass || check_fail "PostToolUse ram-monitor not configured"
   grep -q 'superboost-statusline' "$SETTINGS" 2>/dev/null && check_pass || check_fail "statusLine not configured"
 else
@@ -48,10 +49,10 @@ fi
 # 3. CLAUDE.md exists and contains Superboost v3 content
 if [ -f "$CLAUDE_MD" ]; then
   check_pass
-  grep -q "Superboost v3" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md doesn't reference Superboost v3"
-  grep -q "Agent Dispatch Protocol" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing Agent Dispatch Protocol"
-  grep -q "PROGRESS BAR" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing Progress Bar injection rule"
-  grep -q "Pre-Flight Optimization" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing Pre-Flight Optimization"
+  grep -q "Superboost v4" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md doesn't reference Superboost v4"
+  grep -q "Auto-Router" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing Auto-Router"
+  grep -q "Model Tiering" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing Model Tiering"
+  grep -q "safety-guard" "$CLAUDE_MD" 2>/dev/null && check_pass || check_warn "CLAUDE.md missing safety-guard reference"
 else
   check_fail "CLAUDE.md not found at $CLAUDE_MD"
 fi
@@ -162,28 +163,19 @@ ${ISSUE_LIST}
 "
 fi
 
-# ─── Output Banner ───────────────────────────────────────────
+# ─── Output (v4: silent on success; surface ONLY problems) ───
+# v3.0 forced Claude to render a full marketing banner as its first output every
+# session. v4 runs the self-test silently and only speaks up when something is wrong.
+if [ $FAIL -gt 0 ] || [ $WARN -gt 0 ]; then
 cat <<EOF
-SUPERBOOST SESSION START — Display the following banner to the user as your FIRST output before doing anything else. Use exactly this markdown format:
-
----
-**ISYNCSO SUPERBOOST V${SUPERBOOST_VERSION}**
-
-| Metric | Value |
-|--------|-------|
-| Version | V${SUPERBOOST_VERSION} |
-| Boot Check | ${SELFTEST_ICON} ${SELFTEST_VERDICT} (${PASS}/${TOTAL} checks passed) |
-| RAM | ${AVAIL_GB} GB free / ${TOTAL_GB} GB |
-| CPU Load | ${LOAD_AVG} |
-| Max Agents | ${MAX_AGENTS} |
-| Status | ${STATUS} |
+SUPERBOOST V4 ACTIVE — the boot self-test found issues. Surface these to the user so they can repair the install, then proceed with their request:
 ${ISSUE_BLOCK}
-*Resource monitoring active. Auto-router enabled. Agent Dispatch Protocol armed.*
-*For support: [isyncso.com](https://www.isyncso.com) | innovate@isyncso.com (Subject: Superboost V${SUPERBOOST_VERSION})*
-
----
-
-After displaying this banner, proceed normally with whatever the user asks.
+(Superboost v${SUPERBOOST_VERSION} | ${SELFTEST_ICON} ${PASS}/${TOTAL} checks | RAM ${AVAIL_GB} GB free | ${STATUS})
 EOF
+else
+cat <<EOF
+SUPERBOOST V4 ACTIVE — boot OK (${PASS}/${TOTAL} checks), RAM ${AVAIL_GB} GB free, ${STATUS}. Do NOT render a banner; proceed directly with the user's request.
+EOF
+fi
 
 exit 0

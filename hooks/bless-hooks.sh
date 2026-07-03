@@ -1,6 +1,6 @@
 #!/bin/bash
 # bless-hooks.sh — Seed/update Superboost hook checksums in version.json
-# Part of Claude Code Superboost V3 by ISYNCSO (https://isyncso.com)
+# Part of Claude Code Superboost V4 by ISYNCSO (https://isyncso.com)
 #
 # Run after intentional edits to any hook in ~/.claude/hooks/ to re-bless
 # the checksums. The SessionStart banner warns on drift; this quiets it.
@@ -11,7 +11,7 @@ set -e
 
 HOOKS_DIR="$HOME/.claude/hooks"
 VERSION_FILE="$HOME/.claude/superboost-version.json"
-TRACKED=(resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh bless-hooks.sh)
+TRACKED=(resource-check.sh ram-monitor.sh resource-guard.sh superboost-banner.sh superboost-statusline.sh bless-hooks.sh safety-guard.sh gitnexus-refresh.sh)
 
 if [ ! -f "$VERSION_FILE" ]; then
   echo "ERROR: $VERSION_FILE not found" >&2
